@@ -1,0 +1,13 @@
+{
+    "display_name": "玉成-智绘姬快速换装",
+    "loading_order": 1010,
+    "requires": [],
+    "dependencies": [
+        "third-party/st-chatu8"
+    ],
+    "optional": [],
+    "js": "index.js",
+    "css": "style.css",
+    "author": "local",
+    "version": "0.1.0"
+}
