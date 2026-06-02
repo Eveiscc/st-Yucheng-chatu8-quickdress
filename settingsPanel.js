@@ -64,6 +64,10 @@ export function renderSettingsPanel() {
                         <i class="fa-solid fa-check chatu8-qd-placement-check" aria-hidden="true"></i>
                         <span>回复栏上方</span>
                     </button>
+                    <button class="menu_button chatu8-qd-floating-reset" type="button" data-qd-reset-floating-position title="将悬浮按钮恢复到默认右下位置">
+                        <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+                        <span>悬浮按钮复位</span>
+                    </button>
                 </div>
             </div>
             <button class="menu_button chatu8-qd-open-settings-button" type="button" data-qd-open-panel>
@@ -132,6 +136,12 @@ function bindSettingsPanel(container, settings) {
             syncEntryButton();
         });
     }
+
+    container.querySelector('[data-qd-reset-floating-position]')?.addEventListener('click', () => {
+        settings.floatingButtonPosition = null;
+        saveSettingsDebounced();
+        syncEntryButton();
+    });
 
     container.querySelector('[data-qd-open-panel]').addEventListener('click', () => {
         settings.enabled = true;
