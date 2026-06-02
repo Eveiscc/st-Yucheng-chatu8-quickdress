@@ -34,7 +34,7 @@ https://github.com/Eveisc/st-yucheng-chatu8-quick-dress
 将本仓库完整放入 SillyTavern 的第三方扩展目录：
 
 ```text
-public/scripts/extensions/third-party/st-chatu8-quick-dress
+public/scripts/extensions/third-party/st-yucheng-chatu8-quick-dress
 ```
 
 刷新 SillyTavern 页面即可。
@@ -63,4 +63,3 @@ public/scripts/extensions/third-party/st-chatu8-quick-dress
 - 玉成依赖智绘姬，不能单独使用。
 - 玉成记录的是快速换装候选列表和界面状态；智绘姬仍然是角色服装数据的来源。
 - “立即穿上”的默认文本可以在插件设置中的“输入内容”里修改。请保留 `{{角色名}}` 和 `{{服装名}}`，否则无法自动替换为实际名称。
-

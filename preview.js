@@ -1,8 +1,8 @@
-import { getConfigImage } from '../st-chatu8/utils/configDatabase.js';
 import { ids, mobileViewportWidth } from './constants.js';
 import { applyThemeColors } from './themeColors.js';
 
 const imageCache = new Map();
+let configImageLoaderPromise = null;
 let hoverPreviewToken = 0;
 let activePreviewRow = null;
 
@@ -106,6 +106,7 @@ async function loadPreviewImage(imageId) {
     }
 
     try {
+        const getConfigImage = await getConfigImageLoader();
         const imageData = await getConfigImage(imageId);
         imageCache.set(imageId, imageData || null);
         return imageData || null;
@@ -114,6 +115,20 @@ async function loadPreviewImage(imageId) {
         imageCache.set(imageId, null);
         return null;
     }
+}
+
+async function getConfigImageLoader() {
+    if (!configImageLoaderPromise) {
+        configImageLoaderPromise = import('../st-chatu8/utils/configDatabase.js').then((module) => {
+            if (typeof module.getConfigImage !== 'function') {
+                throw new Error('智绘姬参考图读取接口不可用');
+            }
+
+            return module.getConfigImage;
+        });
+    }
+
+    return configImageLoaderPromise;
 }
 
 function isMobileViewport() {

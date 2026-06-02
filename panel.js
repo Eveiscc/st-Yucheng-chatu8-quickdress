@@ -116,9 +116,24 @@ function syncPanelViewport() {
     overlay.classList.toggle('chatu8-qd-desktop', !isMobile);
 
     const panel = document.getElementById(ids.panel);
+    if (panel) {
+        setPanelColumnMetrics(panel, Number(panel.dataset.qdCharacterCount) || 0);
+    }
     if (panel && !panel.hidden) {
         requestAnimationFrame(() => applyPanelPosition(panel));
     }
+}
+
+function setPanelColumnMetrics(panel, characterCount) {
+    const overlay = panel.closest(`#${ids.overlay}`);
+    const isMobile = overlay?.classList.contains('chatu8-qd-mobile')
+        ?? ((window.visualViewport?.width || window.innerWidth) < mobileViewportWidth);
+    const maxVisibleColumns = isMobile ? 2 : 3;
+    const normalizedCount = Math.max(0, Number(characterCount) || 0);
+    const visibleColumns = Math.max(1, Math.min(normalizedCount || 1, maxVisibleColumns));
+
+    panel.dataset.qdCharacterCount = String(normalizedCount);
+    panel.dataset.qdVisibleColumns = String(visibleColumns);
 }
 
 function ensurePanelShell() {
@@ -249,6 +264,7 @@ export function renderPanelContent() {
     outfitInputSerial = 0;
     applyThemeColors(panel);
     panel.classList.toggle('is-delete-mode', deleteMode);
+    setPanelColumnMetrics(panel, 0);
     body.replaceChildren();
 
     if (!chatu8) {
@@ -261,6 +277,7 @@ export function renderPanelContent() {
 
     const activePresetId = chatu8.characterEnablePresetId || '';
     const activeCharacterIds = getActiveCharacterIds(chatu8);
+    setPanelColumnMetrics(panel, activeCharacterIds.length);
     subtitle.textContent = activePresetId ? `当前角色列表：${activePresetId}` : '未选择角色启用列表';
 
     if (activeCharacterIds.length === 0) {

@@ -1,15 +1,26 @@
 import { saveSettings, saveSettingsDebounced } from '../../../../script.js';
 import { extension_settings } from '../../../extensions.js';
-import { extensionName as chatu8ExtensionKey } from '../st-chatu8/utils/config.js';
 import { getSettings } from './settings.js';
 
+const chatu8ExtensionKey = 'st-chatu8';
 const listSeparator = '\u0000';
 const characterPresetSelectId = 'character_preset_id';
 const characterOutfitListId = 'char_outfit_list';
 const characterUpdateButtonId = 'character_update';
 
+function isChatu8Settings(value) {
+    return Boolean(value)
+        && typeof value === 'object'
+        && !Array.isArray(value)
+        && Boolean(value.characterPresets)
+        && typeof value.characterPresets === 'object'
+        && Boolean(value.outfitPresets)
+        && typeof value.outfitPresets === 'object';
+}
+
 export function getChatu8Settings() {
-    return extension_settings[chatu8ExtensionKey] || null;
+    const settings = extension_settings[chatu8ExtensionKey];
+    return isChatu8Settings(settings) ? settings : null;
 }
 
 export function splitAliases(value) {

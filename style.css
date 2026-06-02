@@ -34,7 +34,6 @@
     --chatu8-qd-border-color: var(--SmartThemeBorderColor);
 }
 
-.chatu8-qd-composer-button,
 .chatu8-qd-open-settings-button,
 .chatu8-qd-wear-button,
 .chatu8-qd-replace-button,
@@ -50,9 +49,7 @@
     word-break: keep-all;
 }
 
-#chatu8-qd-floating-button,
-#chatu8-qd-composer-entry,
-.chatu8-qd-composer-button {
+#chatu8-qd-floating-button {
     font-family: var(--mainFontFamily);
     font-size: 14px;
     line-height: 1.25;
@@ -65,9 +62,39 @@
 
 #chatu8-qd-composer-entry {
     flex: 0 0 auto;
-    min-height: 28px;
-    padding-right: 8px;
-    padding-left: 8px;
+    user-select: none;
+}
+
+#qr--bar > #chatu8-qd-composer-entry,
+#chatu8-qd-composer-entry.is-send-form-fallback {
+    color: var(--SmartThemeBodyColor);
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 10px;
+    padding: 3px 5px;
+    margin: 3px 0;
+    cursor: pointer;
+    transition: var(--animation-duration-2x);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    position: relative;
+}
+
+#qr--bar > #chatu8-qd-composer-entry:hover,
+#chatu8-qd-composer-entry.is-send-form-fallback:hover {
+    background-color: #4d4d4d;
+}
+
+#qr--bar > #chatu8-qd-composer-entry .qr--button-icon,
+#chatu8-qd-composer-entry.is-send-form-fallback .qr--button-icon {
+    margin: 0 0.5em;
+}
+
+#chatu8-qd-composer-entry.is-send-form-fallback {
+    order: 1;
+    margin-right: auto;
+    margin-left: auto;
 }
 
 #chatu8-qd-floating-button:active {
@@ -105,6 +132,7 @@
 }
 
 .chatu8-qd-panel {
+    --chatu8-qd-column-width: 238px;
     display: grid;
     grid-template-rows: auto minmax(0, auto) auto;
     font-family: var(--mainFontFamily);
@@ -123,16 +151,28 @@
     position: absolute;
     right: 18px;
     bottom: 78px;
-    width: fit-content;
-    min-width: min(260px, calc(var(--chatu8-qd-vv-width, 100vw) - 36px));
+    width: min(250px, calc(var(--chatu8-qd-vv-width, 100vw) - 36px));
+    min-width: 0;
     max-width: min(740px, calc(var(--chatu8-qd-vv-width, 100vw) - 36px));
     max-height: min(680px, calc(var(--chatu8-qd-vv-height, 100vh) - 116px));
 }
 
+.chatu8-qd-desktop .chatu8-qd-panel[data-qd-visible-columns="2"] {
+    width: min(494px, calc(var(--chatu8-qd-vv-width, 100vw) - 36px));
+}
+
+.chatu8-qd-desktop .chatu8-qd-panel[data-qd-visible-columns="3"] {
+    width: min(738px, calc(var(--chatu8-qd-vv-width, 100vw) - 36px));
+}
+
 .chatu8-qd-mobile .chatu8-qd-panel {
     position: relative;
-    width: min(560px, calc(var(--chatu8-qd-vv-width, 100vw) - 16px));
+    width: min(300px, calc(var(--chatu8-qd-vv-width, 100vw) - 16px));
     max-height: calc(var(--chatu8-qd-vv-height, 100vh) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 16px);
+}
+
+.chatu8-qd-mobile .chatu8-qd-panel[data-qd-visible-columns="2"] {
+    width: min(560px, calc(var(--chatu8-qd-vv-width, 100vw) - 16px));
 }
 
 .chatu8-qd-panel.is-positioned {
@@ -163,6 +203,11 @@
 .chatu8-qd-desktop .chatu8-qd-panel-footer {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.chatu8-qd-desktop .chatu8-qd-panel[data-qd-visible-columns="1"] .chatu8-qd-panel-footer {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
 }
 
 .chatu8-qd-panel-title,
@@ -402,6 +447,12 @@
     gap: 6px;
 }
 
+.chatu8-qd-desktop .chatu8-qd-panel[data-qd-visible-columns="1"] .chatu8-qd-footer-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+}
+
 .chatu8-qd-footer-actions[hidden] {
     display: none;
 }
@@ -412,6 +463,14 @@
 .chatu8-qd-confirm-delete-button {
     min-width: 104px;
     min-height: 28px;
+}
+
+.chatu8-qd-desktop .chatu8-qd-panel[data-qd-visible-columns="1"] .chatu8-qd-wear-button,
+.chatu8-qd-desktop .chatu8-qd-panel[data-qd-visible-columns="1"] .chatu8-qd-replace-button,
+.chatu8-qd-desktop .chatu8-qd-panel[data-qd-visible-columns="1"] .chatu8-qd-cancel-delete-button,
+.chatu8-qd-desktop .chatu8-qd-panel[data-qd-visible-columns="1"] .chatu8-qd-confirm-delete-button {
+    width: 100%;
+    min-width: 0;
 }
 
 .chatu8-qd-preview {
@@ -721,6 +780,10 @@
     flex: 0 0 calc((100% - 6px) / 2);
     min-width: 0;
     max-width: none;
+}
+
+.chatu8-qd-mobile .chatu8-qd-panel[data-qd-visible-columns="1"] .chatu8-qd-character-column {
+    flex-basis: 100%;
 }
 
 .chatu8-qd-mobile .chatu8-qd-outfit-row {

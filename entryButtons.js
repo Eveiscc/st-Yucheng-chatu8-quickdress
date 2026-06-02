@@ -5,8 +5,33 @@ import { getSettings } from './settings.js';
 import { setPanelOpen, togglePanel } from './panel.js';
 import { applyThemeColors } from './themeColors.js';
 
+const qrAssistantButtonConfig = Object.freeze({
+    dom_id: ids.composerContainer,
+    group_name: '玉成-智绘姬快速换装',
+    button_name: '玉成',
+});
+
 function removeElementById(id) {
     document.getElementById(id)?.remove();
+}
+
+function refreshExternalButtonManagers() {
+    window.quickReplyMenu?.applyWhitelistDOMChanges?.();
+    window.quickReplyMenu?.populateWhitelistManagementUI?.();
+}
+
+function registerQrAssistantButton() {
+    if (!Array.isArray(window.qrAssistantExtensionApi)) {
+        window.qrAssistantExtensionApi = [];
+    }
+
+    const existingIndex = window.qrAssistantExtensionApi
+        .findIndex((item) => item?.dom_id === qrAssistantButtonConfig.dom_id);
+    if (existingIndex >= 0) {
+        window.qrAssistantExtensionApi[existingIndex] = qrAssistantButtonConfig;
+    } else {
+        window.qrAssistantExtensionApi.push(qrAssistantButtonConfig);
+    }
 }
 
 function createButtonLabel(iconClass, text) {
@@ -23,6 +48,38 @@ function createButtonLabel(iconClass, text) {
     return fragment;
 }
 
+function createQrButtonContent(iconClass, text) {
+    const fragment = document.createDocumentFragment();
+
+    const icon = document.createElement('div');
+    icon.className = `qr--button-icon ${iconClass}`;
+    icon.setAttribute('aria-hidden', 'true');
+    fragment.append(icon);
+
+    const label = document.createElement('div');
+    label.className = 'qr--button-label';
+    label.textContent = text;
+    fragment.append(label);
+
+    return fragment;
+}
+
+function bindButtonActivation(element) {
+    element.addEventListener('click', togglePanel);
+    if (element.tagName === 'BUTTON') {
+        return;
+    }
+
+    element.addEventListener('keydown', (event) => {
+        if (!['Enter', ' '].includes(event.key)) {
+            return;
+        }
+
+        event.preventDefault();
+        togglePanel();
+    });
+}
+
 export function syncEntryButton() {
     const settings = getSettings();
     if (!settings.enabled) {
@@ -31,12 +88,14 @@ export function syncEntryButton() {
         if (settings.panelOpen) {
             setPanelOpen(false);
         }
+        refreshExternalButtonManagers();
         return;
     }
 
     if (settings.buttonPlacement === 'floating') {
         removeElementById(ids.composerContainer);
         ensureFloatingButton();
+        refreshExternalButtonManagers();
     } else {
         removeElementById(ids.floatingButton);
         ensureComposerButton();
@@ -59,7 +118,7 @@ function ensureFloatingButton() {
     button.type = 'button';
     button.title = '玉成-智绘姬快速换装';
     button.append(createButtonLabel('fa-solid fa-shirt', '玉成'));
-    button.addEventListener('click', togglePanel);
+    bindButtonActivation(button);
     bindFloatingButtonDrag(button);
     document.body.append(button);
     applyThemeColors(button);
@@ -102,27 +161,70 @@ function bindFloatingButtonDrag(button) {
     });
 }
 
+function getComposerMount() {
+    const qrButtons = document.querySelector('#qr--bar > .qr--buttons');
+    if (qrButtons) {
+        return { anchor: qrButtons, fallback: false };
+    }
+
+    const qrBar = document.querySelector('#qr--bar');
+    if (qrBar) {
+        return { anchor: qrBar, fallback: false };
+    }
+
+    const sendForm = document.querySelector('#send_form');
+    if (!sendForm) {
+        return null;
+    }
+
+    return {
+        anchor: sendForm,
+        before: sendForm.children[0] || null,
+        fallback: true,
+    };
+}
+
 function ensureComposerButton() {
-    const anchor = document.querySelector('#qr--bar > .qr--buttons') || document.querySelector('#qr--bar');
-    if (!anchor) {
+    registerQrAssistantButton();
+
+    const mount = getComposerMount();
+    if (!mount) {
+        refreshExternalButtonManagers();
         return null;
     }
 
     let button = document.getElementById(ids.composerContainer);
-    if (!button) {
-        button = document.createElement('button');
-        button.id = ids.composerContainer;
-        button.className = 'menu_button qr--button chatu8-qd-composer-button';
-        button.type = 'button';
-        button.title = '玉成-智绘姬快速换装';
-        button.append(createButtonLabel('fa-solid fa-shirt', '玉成'));
-        button.addEventListener('click', togglePanel);
+    if (button && button.tagName !== 'DIV') {
+        button.remove();
+        button = null;
     }
 
-    if (button.parentElement !== anchor) {
-        anchor.append(button);
+    if (!button) {
+        button = document.createElement('div');
+        button.id = ids.composerContainer;
+        button.className = 'menu_button qr--button chatu8-qd-composer-button';
+        button.setAttribute('role', 'button');
+        button.tabIndex = 0;
+        button.title = '玉成-智绘姬快速换装';
+        button.dataset.qdExternalButton = 'true';
+        button.dataset.extensionId = 'st-yucheng-chatu8-quick-dress';
+        button.dataset.extensionName = '玉成-智绘姬快速换装';
+        button.setAttribute('aria-label', '打开玉成-换装面板');
+        button.append(createQrButtonContent('fa-solid fa-shirt', '玉成'));
+        bindButtonActivation(button);
+    }
+
+    button.classList.toggle('is-send-form-fallback', mount.fallback);
+
+    if (button.parentElement !== mount.anchor) {
+        if (mount.before) {
+            mount.anchor.insertBefore(button, mount.before);
+        } else {
+            mount.anchor.append(button);
+        }
     }
 
     applyThemeColors(button);
+    refreshExternalButtonManagers();
     return button;
 }
