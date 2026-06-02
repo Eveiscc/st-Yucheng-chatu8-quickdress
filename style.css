@@ -2,7 +2,7 @@
     position: fixed;
     right: 22px;
     bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
-    z-index: 2990;
+    z-index: 10020;
     display: inline-flex;
     align-items: center;
     gap: 7px;
@@ -835,8 +835,15 @@
 
 @media (max-width: 640px) {
     #chatu8-qd-floating-button {
-        right: 12px;
-        bottom: calc(env(safe-area-inset-bottom, 0px) + 86px);
+        z-index: 10020;
+    }
+
+    #chatu8-qd-floating-button:not(.is-positioned) {
+        right: auto;
+        bottom: auto;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
     }
 
     .chatu8-qd-settings {

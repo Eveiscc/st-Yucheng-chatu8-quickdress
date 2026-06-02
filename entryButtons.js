@@ -1,5 +1,5 @@
 import { saveSettingsDebounced } from '../../../../script.js';
-import { ids } from './constants.js';
+import { ids, mobileViewportWidth } from './constants.js';
 import { bindDragHandle } from './drag.js';
 import { getSettings } from './settings.js';
 import { setPanelOpen, togglePanel } from './panel.js';
@@ -10,9 +10,16 @@ const qrAssistantButtonConfig = Object.freeze({
     group_name: '玉成-智绘姬快速换装',
     button_name: '玉成',
 });
+const floatingButtonFallbackWidth = 84;
+const floatingButtonFallbackHeight = 38;
+const floatingButtonViewportPadding = 8;
 
 function removeElementById(id) {
     document.getElementById(id)?.remove();
+}
+
+function setImportantStyle(element, property, value) {
+    element.style.setProperty(property, value, 'important');
 }
 
 function refreshExternalButtonManagers() {
@@ -107,6 +114,7 @@ function ensureFloatingButton() {
     let button = document.getElementById(ids.floatingButton);
     if (button) {
         bindFloatingButtonDrag(button);
+        applyFloatingButtonBaseStyles(button);
         applyThemeColors(button);
         applyFloatingButtonPosition(button, settings.floatingButtonPosition);
         return button;
@@ -121,30 +129,121 @@ function ensureFloatingButton() {
     bindButtonActivation(button);
     bindFloatingButtonDrag(button);
     document.body.append(button);
+    applyFloatingButtonBaseStyles(button);
     applyThemeColors(button);
     applyFloatingButtonPosition(button, settings.floatingButtonPosition);
     return button;
 }
 
+function applyFloatingButtonBaseStyles(button) {
+    setImportantStyle(button, 'position', 'fixed');
+    setImportantStyle(button, 'z-index', '10020');
+    setImportantStyle(button, 'display', 'inline-flex');
+    setImportantStyle(button, 'align-items', 'center');
+    setImportantStyle(button, 'gap', '7px');
+    setImportantStyle(button, 'min-width', `${floatingButtonFallbackWidth}px`);
+    setImportantStyle(button, 'height', `${floatingButtonFallbackHeight}px`);
+    setImportantStyle(button, 'padding', '0 13px');
+    setImportantStyle(button, 'border-radius', '8px');
+    setImportantStyle(button, 'visibility', 'visible');
+    setImportantStyle(button, 'opacity', '1');
+    setImportantStyle(button, 'pointer-events', 'auto');
+    setImportantStyle(button, 'touch-action', 'none');
+    setImportantStyle(button, 'user-select', 'none');
+}
+
+function isMobileViewport() {
+    return getViewportRect().width < mobileViewportWidth;
+}
+
+function getViewportRect() {
+    const viewport = window.visualViewport;
+    return {
+        left: viewport?.offsetLeft || 0,
+        top: viewport?.offsetTop || 0,
+        width: viewport?.width || window.innerWidth,
+        height: viewport?.height || window.innerHeight,
+    };
+}
+
+function isPositionInsideViewport(position, buttonSize) {
+    const viewport = getViewportRect();
+    return position.left >= viewport.left + floatingButtonViewportPadding
+        && position.top >= viewport.top + floatingButtonViewportPadding
+        && position.left <= viewport.left + viewport.width - buttonSize.width - floatingButtonViewportPadding
+        && position.top <= viewport.top + viewport.height - buttonSize.height - floatingButtonViewportPadding;
+}
+
+function getCenteredFloatingButtonPosition(buttonSize) {
+    const viewport = getViewportRect();
+    return clampFloatingButtonPosition({
+        left: viewport.left + ((viewport.width - buttonSize.width) / 2),
+        top: viewport.top + ((viewport.height - buttonSize.height) / 2),
+    }, buttonSize);
+}
+
+function getFloatingButtonSize(button) {
+    const rect = button?.getBoundingClientRect?.();
+    return {
+        width: rect?.width || floatingButtonFallbackWidth,
+        height: rect?.height || floatingButtonFallbackHeight,
+    };
+}
+
+function clampFloatingButtonPosition(position, buttonSize) {
+    const viewport = getViewportRect();
+    const minLeft = viewport.left + floatingButtonViewportPadding;
+    const minTop = viewport.top + floatingButtonViewportPadding;
+    const maxLeft = viewport.left + viewport.width - buttonSize.width - floatingButtonViewportPadding;
+    const maxTop = viewport.top + viewport.height - buttonSize.height - floatingButtonViewportPadding;
+
+    return {
+        left: Math.max(minLeft, Math.min(maxLeft, position.left)),
+        top: Math.max(minTop, Math.min(maxTop, position.top)),
+    };
+}
+
+function setFloatingButtonFixedPosition(button, position) {
+    button.classList.add('is-positioned');
+    setImportantStyle(button, 'left', `${position.left}px`);
+    setImportantStyle(button, 'top', `${position.top}px`);
+    setImportantStyle(button, 'right', 'auto');
+    setImportantStyle(button, 'bottom', 'auto');
+    setImportantStyle(button, 'transform', 'none');
+}
+
+export function resetFloatingButtonPositionToCenter() {
+    const settings = getSettings();
+    const button = document.getElementById(ids.floatingButton);
+    const buttonSize = getFloatingButtonSize(button);
+
+    settings.floatingButtonPosition = getCenteredFloatingButtonPosition(buttonSize);
+    if (button) {
+        applyFloatingButtonPosition(button, settings.floatingButtonPosition);
+    }
+}
+
 function applyFloatingButtonPosition(button, position) {
     if (!position) {
         button.classList.remove('is-positioned');
-        button.style.removeProperty('left');
-        button.style.removeProperty('top');
-        button.style.removeProperty('right');
-        button.style.removeProperty('bottom');
+        button.style.removeProperty('transform');
+        if (isMobileViewport()) {
+            setFloatingButtonFixedPosition(button, getCenteredFloatingButtonPosition(getFloatingButtonSize(button)));
+        } else {
+            button.style.removeProperty('left');
+            button.style.removeProperty('top');
+            setImportantStyle(button, 'right', '22px');
+            setImportantStyle(button, 'bottom', 'calc(env(safe-area-inset-bottom, 0px) + 96px)');
+        }
         return;
     }
 
-    const rect = button.getBoundingClientRect();
-    const left = Math.max(8, Math.min(window.innerWidth - rect.width - 8, position.left));
-    const top = Math.max(8, Math.min(window.innerHeight - rect.height - 8, position.top));
+    const buttonSize = getFloatingButtonSize(button);
+    const nextPosition = isMobileViewport() && !isPositionInsideViewport(position, buttonSize)
+        ? getCenteredFloatingButtonPosition(buttonSize)
+        : clampFloatingButtonPosition(position, buttonSize);
 
-    button.classList.add('is-positioned');
-    button.style.left = `${left}px`;
-    button.style.top = `${top}px`;
-    button.style.right = 'auto';
-    button.style.bottom = 'auto';
+    setFloatingButtonFixedPosition(button, nextPosition);
 }
 
 function bindFloatingButtonDrag(button) {

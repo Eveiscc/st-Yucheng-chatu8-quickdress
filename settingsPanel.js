@@ -1,7 +1,7 @@
 import { saveSettingsDebounced } from '../../../../script.js';
 import { defaultInstructionTemplate, ids } from './constants.js';
 import { getSettings } from './settings.js';
-import { syncEntryButton } from './entryButtons.js';
+import { resetFloatingButtonPositionToCenter, syncEntryButton } from './entryButtons.js';
 import { syncPanelVisibility } from './panel.js';
 import { applyThemeColors } from './themeColors.js';
 
@@ -64,7 +64,7 @@ export function renderSettingsPanel() {
                         <i class="fa-solid fa-check chatu8-qd-placement-check" aria-hidden="true"></i>
                         <span>回复栏上方</span>
                     </button>
-                    <button class="menu_button chatu8-qd-floating-reset" type="button" data-qd-reset-floating-position title="将悬浮按钮恢复到默认右下位置">
+                    <button class="menu_button chatu8-qd-floating-reset" type="button" data-qd-reset-floating-position title="将悬浮按钮复位到屏幕中间">
                         <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
                         <span>悬浮按钮复位</span>
                     </button>
@@ -138,8 +138,11 @@ function bindSettingsPanel(container, settings) {
     }
 
     container.querySelector('[data-qd-reset-floating-position]')?.addEventListener('click', () => {
-        settings.floatingButtonPosition = null;
+        settings.enabled = true;
+        settings.buttonPlacement = 'floating';
+        resetFloatingButtonPositionToCenter();
         saveSettingsDebounced();
+        renderSettingsPanel();
         syncEntryButton();
     });
 
