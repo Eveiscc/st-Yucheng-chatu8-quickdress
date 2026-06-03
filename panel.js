@@ -594,9 +594,15 @@ function buildColumnMetaText(checkedCount, totalCount) {
         : `${checkedCount}/${totalCount} 已勾选`;
 }
 
+function getFirstAliasText(value) {
+    const text = String(value || '').trim();
+    return text.split('|').map((part) => part.trim()).find(Boolean) || text;
+}
+
 function createOutfitRow({ characterId, characterName, outfitId, outfitPreset, checked }) {
-    const outfitName = getPrimaryName(outfitPreset, outfitId);
+    const outfitName = getFirstAliasText(getPrimaryName(outfitPreset, outfitId));
     const secondaryName = getSecondaryName(outfitPreset, outfitName);
+    const metaName = getFirstAliasText(secondaryName || outfitId);
     const imageId = getPhotoImageId(outfitPreset);
     const row = document.createElement('div');
     const checkboxId = `chatu8-qd-outfit-${outfitInputSerial += 1}`;
@@ -629,7 +635,7 @@ function createOutfitRow({ characterId, characterName, outfitId, outfitPreset, c
 
     const meta = document.createElement('span');
     meta.className = 'chatu8-qd-outfit-meta';
-    meta.textContent = secondaryName || outfitId;
+    meta.textContent = metaName;
 
     const photoMark = document.createElement('button');
     photoMark.type = 'button';

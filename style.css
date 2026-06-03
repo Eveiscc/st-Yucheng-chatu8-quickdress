@@ -1019,19 +1019,20 @@
 }
 
 .chatu8-qd-mobile .chatu8-qd-outfit-name {
-    overflow: visible;
-    text-overflow: clip;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: normal;
-    font-size: 13px;
-    line-height: 1.2;
+    font-size: 12px;
+    line-height: 1.18;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .chatu8-qd-mobile .chatu8-qd-outfit-meta {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 13px;
-    line-height: 1.2;
+    display: none;
 }
 
 .chatu8-qd-mobile .chatu8-qd-panel-footer {
