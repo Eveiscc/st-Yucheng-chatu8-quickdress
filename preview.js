@@ -6,19 +6,6 @@ let configImageLoaderPromise = null;
 let hoverPreviewToken = 0;
 let activePreviewRow = null;
 
-export function bindOutfitPreview(row, previewButton) {
-    row.addEventListener('mouseenter', onOutfitHover);
-    row.addEventListener('mouseleave', onOutfitLeave);
-    row.addEventListener('focus', onOutfitHover);
-    row.addEventListener('blur', onOutfitLeave);
-
-    previewButton?.addEventListener('click', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        togglePreview(row);
-    });
-}
-
 function ensurePreviewShell() {
     let preview = document.getElementById(ids.preview);
     if (preview) {
@@ -39,23 +26,15 @@ function ensurePreviewShell() {
     return preview;
 }
 
-async function onOutfitHover(event) {
+export async function showOutfitPreview(row) {
     if (isMobileViewport()) {
         return;
     }
 
-    await showPreview(event.currentTarget);
+    await showPreview(row);
 }
 
-function onOutfitLeave() {
-    if (isMobileViewport()) {
-        return;
-    }
-
-    hidePreview();
-}
-
-async function togglePreview(row) {
+export async function toggleOutfitPreview(row) {
     const preview = document.getElementById(ids.preview);
     if (preview && !preview.hidden && activePreviewRow === row) {
         hidePreview();

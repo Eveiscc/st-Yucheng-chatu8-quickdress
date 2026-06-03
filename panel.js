@@ -28,7 +28,7 @@ import {
     setOutfitScrollTop,
     splitOutfitsByCurrentActivation,
 } from './selectionState.js';
-import { bindOutfitPreview, hidePreview } from './preview.js';
+import { hidePreview, showOutfitPreview, toggleOutfitPreview } from './preview.js';
 import { createAspectToolbar } from './aspectPanel.js';
 
 let viewportListenersBound = false;
@@ -41,6 +41,8 @@ const pendingScrollTopByCharacter = new Map();
 let hiddenPanelCharacterIds = new Set();
 let hiddenPanelCharacterSignature = '';
 let pendingPanelRenderFrame = 0;
+let pendingViewportFrame = 0;
+let pendingPanelPositionFrame = 0;
 
 function markPanelStateDirty() {
     panelStateDirty = true;
@@ -216,11 +218,35 @@ function bindViewportListeners() {
     }
 
     viewportListenersBound = true;
-    const refresh = () => syncPanelViewport();
+    const refresh = () => schedulePanelViewportSync();
     window.visualViewport?.addEventListener('resize', refresh);
     window.visualViewport?.addEventListener('scroll', refresh);
     window.addEventListener('resize', refresh);
     window.addEventListener('orientationchange', refresh);
+}
+
+function schedulePanelViewportSync() {
+    if (pendingViewportFrame) {
+        return;
+    }
+
+    pendingViewportFrame = requestAnimationFrame(() => {
+        pendingViewportFrame = 0;
+        syncPanelViewport();
+    });
+}
+
+function scheduleApplyPanelPosition(panel) {
+    if (pendingPanelPositionFrame) {
+        return;
+    }
+
+    pendingPanelPositionFrame = requestAnimationFrame(() => {
+        pendingPanelPositionFrame = 0;
+        if (panel.isConnected && !panel.hidden) {
+            applyPanelPosition(panel);
+        }
+    });
 }
 
 function syncPanelViewport() {
@@ -235,28 +261,29 @@ function syncPanelViewport() {
     const left = viewport?.offsetLeft || 0;
     const top = viewport?.offsetTop || 0;
     const isMobile = width < mobileViewportWidth;
+    const signature = `${left}|${top}|${width}|${height}|${isMobile}`;
 
-    overlay.style.setProperty('--chatu8-qd-vv-left', `${left}px`);
-    overlay.style.setProperty('--chatu8-qd-vv-top', `${top}px`);
-    overlay.style.setProperty('--chatu8-qd-vv-width', `${width}px`);
-    overlay.style.setProperty('--chatu8-qd-vv-height', `${height}px`);
-    overlay.classList.toggle('chatu8-qd-mobile', isMobile);
-    overlay.classList.toggle('chatu8-qd-desktop', !isMobile);
+    if (overlay.dataset.qdViewportSignature !== signature) {
+        overlay.dataset.qdViewportSignature = signature;
+        overlay.style.setProperty('--chatu8-qd-vv-left', `${left}px`);
+        overlay.style.setProperty('--chatu8-qd-vv-top', `${top}px`);
+        overlay.style.setProperty('--chatu8-qd-vv-width', `${width}px`);
+        overlay.style.setProperty('--chatu8-qd-vv-height', `${height}px`);
+        overlay.classList.toggle('chatu8-qd-mobile', isMobile);
+        overlay.classList.toggle('chatu8-qd-desktop', !isMobile);
+    }
 
     const panel = document.getElementById(ids.panel);
     if (panel) {
         setPanelColumnMetrics(panel, Number(panel.dataset.qdCharacterCount) || 0);
     }
     if (panel && !panel.hidden) {
-        requestAnimationFrame(() => applyPanelPosition(panel));
+        scheduleApplyPanelPosition(panel);
     }
 }
 
 function setPanelColumnMetrics(panel, characterCount) {
-    const overlay = panel.closest(`#${ids.overlay}`);
-    const isMobile = overlay?.classList.contains('chatu8-qd-mobile')
-        ?? ((window.visualViewport?.width || window.innerWidth) < mobileViewportWidth);
-    const maxVisibleColumns = isMobile ? 2 : 3;
+    const maxVisibleColumns = 2;
     const normalizedCount = Math.max(0, Number(characterCount) || 0);
     const visibleColumns = Math.max(1, Math.min(normalizedCount || 1, maxVisibleColumns));
 
@@ -328,7 +355,12 @@ function ensurePanelShell() {
     `;
 
     panel.addEventListener('click', onPanelClick);
+    panel.addEventListener('keydown', onPanelKeydown);
     panel.addEventListener('change', onPanelChange);
+    panel.addEventListener('mouseover', onPanelOutfitHover);
+    panel.addEventListener('mouseout', onPanelOutfitLeave);
+    panel.addEventListener('focusin', onPanelOutfitHover);
+    panel.addEventListener('focusout', onPanelOutfitLeave);
     overlay.append(panel);
     bindPanelDrag(panel);
     applyThemeColors(overlay, panel);
@@ -452,7 +484,7 @@ export function renderPanelContent() {
     body.append(columns);
     updateFooterState(panel, chatu8);
     syncModeButtons(panel);
-    requestAnimationFrame(() => applyPanelPosition(panel));
+    scheduleApplyPanelPosition(panel);
 }
 
 function createEmptyState(text) {
@@ -664,36 +696,28 @@ function createOutfitRow({ characterId, characterName, outfitId, outfitPreset, c
         text.append(meta);
     }
     row.append(checkbox, text, photoMark);
-    bindOutfitRowToggle(row, checkbox);
-    bindOutfitPreview(row, photoMark);
     return row;
 }
 
-function bindOutfitRowToggle(row, checkbox) {
-    const toggle = () => {
-        checkbox.checked = !checkbox.checked;
-        checkbox.dispatchEvent(new Event('change', { bubbles: true }));
-    };
-
-    row.addEventListener('click', (event) => {
-        if (event.target.closest('input, label, button')) {
-            return;
-        }
-
-        toggle();
-    });
-
-    row.addEventListener('keydown', (event) => {
-        if (!['Enter', ' '].includes(event.key) || event.target !== row) {
-            return;
-        }
-
-        event.preventDefault();
-        toggle();
-    });
-}
-
 function onPanelClick(event) {
+    const previewButton = event.target.closest('[data-qd-preview-trigger]');
+    if (previewButton) {
+        const row = previewButton.closest('.chatu8-qd-outfit-row');
+        if (row) {
+            event.preventDefault();
+            event.stopPropagation();
+            void toggleOutfitPreview(row);
+        }
+        return;
+    }
+
+    const outfitRow = event.target.closest('.chatu8-qd-outfit-row');
+    if (outfitRow && !event.target.closest('input, label, button')) {
+        event.preventDefault();
+        toggleOutfitRow(outfitRow);
+        return;
+    }
+
     const button = event.target.closest('[data-qd-action]');
     if (!button) {
         return;
@@ -735,6 +759,48 @@ function onPanelClick(event) {
     } else if (action === 'replace') {
         replaceCurrentSelections();
     }
+}
+
+function onPanelKeydown(event) {
+    if (!['Enter', ' '].includes(event.key)) {
+        return;
+    }
+
+    const row = event.target.closest('.chatu8-qd-outfit-row');
+    if (!row || event.target !== row) {
+        return;
+    }
+
+    event.preventDefault();
+    toggleOutfitRow(row);
+}
+
+function toggleOutfitRow(row) {
+    const checkbox = row.querySelector('input[type="checkbox"]');
+    if (!checkbox) {
+        return;
+    }
+
+    checkbox.checked = !checkbox.checked;
+    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function onPanelOutfitHover(event) {
+    const row = event.target.closest('.chatu8-qd-outfit-row');
+    if (!row || !event.currentTarget.contains(row) || row.contains(event.relatedTarget)) {
+        return;
+    }
+
+    void showOutfitPreview(row);
+}
+
+function onPanelOutfitLeave(event) {
+    const row = event.target.closest('.chatu8-qd-outfit-row');
+    if (!row || row.contains(event.relatedTarget)) {
+        return;
+    }
+
+    hidePreview();
 }
 
 function onPanelChange(event) {
