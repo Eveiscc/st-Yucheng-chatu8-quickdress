@@ -352,10 +352,16 @@ function bindPanelDrag(panel) {
         },
         setPosition: (position) => {
             const settings = getSettings();
-            settings.panelPosition = position;
+            if (!isPanelMobile(panel)) {
+                settings.panelPosition = position;
+            }
             setPanelFixedPosition(panel, position);
         },
-        onDragEnd: () => saveSettingsDebounced(),
+        onDragEnd: () => {
+            if (!isPanelMobile(panel)) {
+                saveSettingsDebounced();
+            }
+        },
     });
 }
 
@@ -367,13 +373,21 @@ function setPanelFixedPosition(panel, position) {
     panel.style.bottom = 'auto';
 }
 
+function resetPanelFixedPosition(panel) {
+    panel.classList.remove('is-positioned');
+    panel.style.removeProperty('left');
+    panel.style.removeProperty('top');
+    panel.style.removeProperty('right');
+    panel.style.removeProperty('bottom');
+}
+
+function isPanelMobile(panel) {
+    return panel.closest(`#${ids.overlay}`)?.classList.contains('chatu8-qd-mobile') === true;
+}
+
 function applyPanelPosition(panel, position = getSettings().panelPosition) {
-    if (!position) {
-        panel.classList.remove('is-positioned');
-        panel.style.removeProperty('left');
-        panel.style.removeProperty('top');
-        panel.style.removeProperty('right');
-        panel.style.removeProperty('bottom');
+    if (!position || isPanelMobile(panel)) {
+        resetPanelFixedPosition(panel);
         return;
     }
 
@@ -599,10 +613,33 @@ function getFirstAliasText(value) {
     return text.split('|').map((part) => part.trim()).find(Boolean) || text;
 }
 
+function trimNamePart(value) {
+    return String(value || '')
+        .replace(/^[\s\-–—:：|\/()（）]+/, '')
+        .replace(/[\s\-–—:：|\/()（）]+$/, '')
+        .trim();
+}
+
+function splitOutfitDisplayName(value) {
+    const text = getFirstAliasText(value);
+    const englishIndex = text.search(/[A-Za-z]/);
+    if (englishIndex <= 0) {
+        return { primaryName: text, englishName: '' };
+    }
+
+    const primaryName = trimNamePart(text.slice(0, englishIndex));
+    const englishName = trimNamePart(text.slice(englishIndex));
+    return primaryName && englishName
+        ? { primaryName, englishName }
+        : { primaryName: text, englishName: '' };
+}
+
 function createOutfitRow({ characterId, characterName, outfitId, outfitPreset, checked }) {
-    const outfitName = getFirstAliasText(getPrimaryName(outfitPreset, outfitId));
+    const displayName = splitOutfitDisplayName(getPrimaryName(outfitPreset, outfitId));
+    const outfitName = displayName.primaryName || displayName.englishName;
     const secondaryName = getSecondaryName(outfitPreset, outfitName);
-    const metaName = getFirstAliasText(secondaryName || outfitId);
+    const englishName = displayName.englishName || getFirstAliasText(secondaryName);
+    const metaName = englishName || getFirstAliasText(outfitId);
     const imageId = getPhotoImageId(outfitPreset);
     const row = document.createElement('div');
     const checkboxId = `chatu8-qd-outfit-${outfitInputSerial += 1}`;
@@ -634,7 +671,7 @@ function createOutfitRow({ characterId, characterName, outfitId, outfitPreset, c
     name.textContent = outfitName;
 
     const meta = document.createElement('span');
-    meta.className = 'chatu8-qd-outfit-meta';
+    meta.className = englishName ? 'chatu8-qd-outfit-meta chatu8-qd-outfit-meta-english' : 'chatu8-qd-outfit-meta';
     meta.textContent = metaName;
 
     const photoMark = document.createElement('button');
@@ -1049,15 +1086,15 @@ function buildReplaceStatus(result) {
         return buildReplaceFailureStatus(result);
     }
 
-    if (result.savedVisibleCharacterIds.length > 0) {
-        return `已替换 ${result.replacedCount} 个角色，并同步智绘姬当前页`;
+    if (result.syncedVisibleCharacterIds.length > 0) {
+        return `已保存 ${result.replacedCount} 个角色；当前智绘姬页已同步显示`;
     }
 
-    if (result.visibleSaveFailed) {
-        return `已替换 ${result.replacedCount} 个角色；当前页原保存按钮未触发`;
+    if (result.visibleSyncFailed) {
+        return `已保存 ${result.replacedCount} 个角色；当前智绘姬页显示未同步`;
     }
 
-    return `已替换 ${result.replacedCount} 个角色，切换角色后可看到列表`;
+    return `已保存 ${result.replacedCount} 个角色；只改角色启用服装`;
 }
 
 function confirmDeleteSelections() {

@@ -150,6 +150,7 @@
     --chatu8-qd-content-left: 13px;
     display: grid;
     grid-template-rows: auto minmax(0, auto) auto;
+    min-width: 0;
     font-family: var(--mainFontFamily);
     font-size: var(--chatu8-qd-ui-font-size);
     line-height: 1.25;
@@ -183,12 +184,22 @@
 .chatu8-qd-mobile .chatu8-qd-panel {
     position: relative;
     --chatu8-qd-content-left: 11px;
-    width: min(300px, calc(var(--chatu8-qd-vv-width, 100vw) - 16px));
+    --chatu8-qd-mobile-column-gap: 6px;
+    --chatu8-qd-mobile-column-padding: 6px;
+    --chatu8-qd-mobile-column-width: clamp(140px, 44vw, 176px);
+    width: min(
+        calc(var(--chatu8-qd-mobile-column-width) + var(--chatu8-qd-mobile-column-width) + var(--chatu8-qd-mobile-column-gap) + var(--chatu8-qd-mobile-column-padding) + var(--chatu8-qd-mobile-column-padding)),
+        calc(var(--chatu8-qd-vv-width, 100vw) - 16px)
+    );
+    max-width: calc(var(--chatu8-qd-vv-width, 100vw) - 16px);
     max-height: calc(var(--chatu8-qd-vv-height, 100vh) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 16px);
 }
 
-.chatu8-qd-mobile .chatu8-qd-panel[data-qd-visible-columns="2"] {
-    width: min(560px, calc(var(--chatu8-qd-vv-width, 100vw) - 16px));
+.chatu8-qd-mobile .chatu8-qd-panel[data-qd-visible-columns="1"] {
+    width: min(
+        calc(var(--chatu8-qd-mobile-column-width) + var(--chatu8-qd-mobile-column-padding) + var(--chatu8-qd-mobile-column-padding)),
+        calc(var(--chatu8-qd-vv-width, 100vw) - 16px)
+    );
 }
 
 .chatu8-qd-panel.is-positioned {
@@ -201,6 +212,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 6px;
+    min-width: 0;
     border-color: var(--chatu8-qd-border-color);
 }
 
@@ -258,13 +270,16 @@
 }
 
 .chatu8-qd-active-characters {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
     flex: 1 1 auto;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: var(--chatu8-qd-ui-font-size);
-    line-height: 1.25;
+    white-space: normal;
+    font-size: 12px;
+    line-height: 1.15;
     color: var(--chatu8-qd-ui-muted-color);
     opacity: 1;
 }
@@ -273,6 +288,7 @@
     display: inline-flex;
     align-items: center;
     flex: 0 0 auto;
+    min-width: max-content;
     gap: 6px;
     cursor: auto;
     touch-action: auto;
@@ -315,6 +331,7 @@
 }
 
 .chatu8-qd-panel-body {
+    min-width: 0;
     min-height: 0;
     overflow: auto;
     -webkit-overflow-scrolling: touch;
@@ -534,10 +551,14 @@
     grid-template-columns: 18px minmax(0, 1fr) 20px;
     align-items: center;
     gap: 6px;
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
     min-height: 34px;
     padding: 4px 6px;
     border: 1px solid transparent;
     border-radius: 7px;
+    overflow: hidden;
     cursor: pointer;
 }
 
@@ -575,21 +596,38 @@
     display: grid;
     gap: 2px;
     min-width: 0;
+    max-width: 100%;
+    align-self: center;
+    overflow: hidden;
 }
 
 .chatu8-qd-outfit-name {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
     min-width: 0;
-    font-size: var(--chatu8-qd-ui-font-size);
+    max-width: 100%;
+    font-size: 12px;
     font-weight: 400;
-    line-height: 1.25;
+    line-height: 1.18;
+    overflow: hidden;
+    text-overflow: ellipsis;
     overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .chatu8-qd-outfit-meta {
     min-width: 0;
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.chatu8-qd-outfit-meta-english {
+    display: block;
+    font-size: 6px;
+    line-height: 1.1;
 }
 
 .chatu8-qd-photo-mark {
@@ -949,7 +987,7 @@
 }
 
 .chatu8-qd-mobile .chatu8-qd-panel-header {
-    align-items: center;
+    align-items: flex-start;
 }
 
 .chatu8-qd-mobile .chatu8-qd-panel {
@@ -957,6 +995,7 @@
 }
 
 .chatu8-qd-mobile .chatu8-qd-panel-body {
+    min-width: 0;
     overflow: hidden;
 }
 
@@ -974,32 +1013,46 @@
 }
 
 .chatu8-qd-mobile .chatu8-qd-panel-title-area {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
     gap: 7px;
 }
 
 .chatu8-qd-mobile .chatu8-qd-active-characters {
-    font-size: 13px;
+    font-size: 12px;
+    line-height: 1.15;
 }
 
 .chatu8-qd-mobile .chatu8-qd-columns {
-    display: flex;
-    flex-direction: row;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: var(--chatu8-qd-mobile-column-width);
     align-items: stretch;
-    gap: 6px;
+    gap: var(--chatu8-qd-mobile-column-gap);
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
     min-width: 0;
-    padding: 6px;
+    padding: var(--chatu8-qd-mobile-column-padding);
     overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    touch-action: pan-x pan-y;
     -webkit-overflow-scrolling: touch;
 }
 
 .chatu8-qd-mobile .chatu8-qd-character-column {
-    flex: 0 0 calc((100% - 6px) / 2);
+    box-sizing: border-box;
+    width: var(--chatu8-qd-mobile-column-width);
     min-width: 0;
     max-width: none;
+    scroll-snap-align: start;
 }
 
 .chatu8-qd-mobile .chatu8-qd-panel[data-qd-visible-columns="1"] .chatu8-qd-character-column {
-    flex-basis: 100%;
+    width: var(--chatu8-qd-mobile-column-width);
 }
 
 .chatu8-qd-mobile .chatu8-qd-outfit-row {
@@ -1025,7 +1078,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: normal;
-    font-size: 12px;
     line-height: 1.18;
     overflow-wrap: anywhere;
     word-break: break-word;
@@ -1033,6 +1085,14 @@
 
 .chatu8-qd-mobile .chatu8-qd-outfit-meta {
     display: none;
+}
+
+.chatu8-qd-mobile .chatu8-qd-outfit-meta-english {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.1;
 }
 
 .chatu8-qd-mobile .chatu8-qd-panel-footer {
@@ -1043,7 +1103,12 @@
 .chatu8-qd-mobile .chatu8-qd-footer-actions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    min-width: 0;
     width: 100%;
+}
+
+.chatu8-qd-mobile .chatu8-qd-panel[data-qd-visible-columns="1"] .chatu8-qd-footer-actions {
+    grid-template-columns: minmax(0, 1fr);
 }
 
 .chatu8-qd-mobile .chatu8-qd-footer-actions[hidden] {

@@ -6,7 +6,6 @@ const chatu8ExtensionKey = 'st-chatu8';
 const listSeparator = '\u0000';
 const characterPresetSelectId = 'character_preset_id';
 const characterOutfitListId = 'char_outfit_list';
-const characterUpdateButtonId = 'character_update';
 let outfitOwnerIndexCache = null;
 
 function isChatu8Settings(value) {
@@ -263,10 +262,6 @@ function rememberKnownOutfits(characterId, outfitIds, outfitPresets = getChatu8S
     return nextKnownIds;
 }
 
-function rememberKnownOutfit(characterId, outfitId) {
-    rememberKnownOutfits(characterId, [outfitId]);
-}
-
 function normalizeOutfitIds(chatu8, outfitIds) {
     return resolveOutfitIds(chatu8, outfitIds);
 }
@@ -358,16 +353,6 @@ function getCurrentCharacterPresetId(chatu8 = getChatu8Settings()) {
     return String(chatu8?.characterPresetId || getSelectedCharacterPresetIdFromDom() || '').trim();
 }
 
-function dispatchInputEvents(element) {
-    if (window.$) {
-        window.$(element).trigger('input').trigger('change');
-        return;
-    }
-
-    element.dispatchEvent(new Event('input', { bubbles: true }));
-    element.dispatchEvent(new Event('change', { bubbles: true }));
-}
-
 function setFormValue(element, value) {
     element.value = value;
 
@@ -378,36 +363,20 @@ function setFormValue(element, value) {
 
 function syncVisibleCharacterOutfitForm(chatu8, characterId, outfitIds) {
     if (!isVisibleCharacterPreset(chatu8, characterId)) {
-        return { visible: false, saved: false };
+        return { visible: false, synced: false };
     }
 
     const textarea = document.getElementById(characterOutfitListId);
     if (!textarea) {
-        return { visible: true, saved: false };
+        return { visible: true, synced: false };
     }
 
     const nextValue = outfitIds.join('\n');
     if (textarea.value !== nextValue) {
         setFormValue(textarea, nextValue);
-        dispatchInputEvents(textarea);
     }
 
-    if (chatu8) {
-        chatu8.characterPresetId = characterId;
-    }
-
-    const saveButton = document.getElementById(characterUpdateButtonId);
-    if (!saveButton || saveButton.disabled) {
-        return { visible: true, saved: false };
-    }
-
-    saveButton.click();
-    if (textarea.value !== nextValue) {
-        setFormValue(textarea, nextValue);
-        dispatchInputEvents(textarea);
-    }
-
-    return { visible: true, saved: true };
+    return { visible: true, synced: true };
 }
 
 export function getPhotoImageId(preset) {
@@ -435,13 +404,16 @@ function replaceCharacterOutfitsInSettings(chatu8, characterId, outfitIds) {
 
     const validIds = normalizeOutfitIds(chatu8, outfitIds);
     const previousReferences = getCharacterOutfitReferences(characterPreset);
+    const changed = !sameStringList(previousReferences, validIds);
 
-    characterPreset.outfits = validIds;
-    validIds.forEach((outfitId) => rememberKnownOutfit(characterId, outfitId));
+    if (changed) {
+        characterPreset.outfits = validIds;
+    }
+    rememberKnownOutfits(characterId, validIds);
     return {
         characterId,
         outfitIds: validIds,
-        changed: !sameStringList(previousReferences, validIds),
+        changed,
     };
 }
 
@@ -454,8 +426,8 @@ export function replaceCharacterOutfits(characterId, outfitIds) {
             targetCount: 1,
             replacedCount: 0,
             changedCount: 0,
-            savedVisibleCharacterIds: [],
-            visibleSaveFailed: false,
+            syncedVisibleCharacterIds: [],
+            visibleSyncFailed: false,
             missingCharacterIds: [characterId],
             failedCharacterIds: [characterId],
             verifiedCharacterIds: [],
@@ -477,7 +449,7 @@ export function replaceCharacterOutfits(characterId, outfitIds) {
     }
 
     const failures = verifications.filter((verification) => !verification.ok);
-    if (result.changed || visibleSave.saved || failures.length === 0) {
+    if (result.changed || visibleSave.synced || failures.length === 0) {
         persistChatu8SettingsNow();
     }
 
@@ -486,8 +458,8 @@ export function replaceCharacterOutfits(characterId, outfitIds) {
         targetCount: 1,
         replacedCount: failures.length === 0 ? 1 : 0,
         changedCount: result.changed ? 1 : 0,
-        savedVisibleCharacterIds: visibleSave.saved ? [result.characterId] : [],
-        visibleSaveFailed: visibleSave.visible && !visibleSave.saved,
+        syncedVisibleCharacterIds: visibleSave.synced ? [result.characterId] : [],
+        visibleSyncFailed: visibleSave.visible && !visibleSave.synced,
         missingCharacterIds: [],
         failedCharacterIds: failures.map((failure) => failure.characterId),
         verifiedCharacterIds: failures.length === 0 ? [result.characterId] : [],
@@ -502,8 +474,8 @@ export function replaceCharacterOutfitsByCharacter(entries) {
         targetCount: Array.isArray(entries) ? entries.length : 0,
         replacedCount: 0,
         changedCount: 0,
-        savedVisibleCharacterIds: [],
-        visibleSaveFailed: false,
+        syncedVisibleCharacterIds: [],
+        visibleSyncFailed: false,
         missingCharacterIds: [],
         failedCharacterIds: [],
         verifiedCharacterIds: [],
@@ -525,10 +497,10 @@ export function replaceCharacterOutfitsByCharacter(entries) {
             outfitIds: [...result.outfitIds],
         });
 
-        if (visibleSave.saved) {
-            summary.savedVisibleCharacterIds.push(result.characterId);
+        if (visibleSave.synced) {
+            summary.syncedVisibleCharacterIds.push(result.characterId);
         } else if (visibleSave.visible) {
-            summary.visibleSaveFailed = true;
+            summary.visibleSyncFailed = true;
         }
     }
 
@@ -549,7 +521,7 @@ export function replaceCharacterOutfitsByCharacter(entries) {
     summary.replacedCount = summary.verifiedCharacterIds.length;
     summary.ok = targets.length > 0 && summary.failedCharacterIds.length === 0;
 
-    if (targets.length > 0 || summary.savedVisibleCharacterIds.length > 0) {
+    if (targets.length > 0 || summary.syncedVisibleCharacterIds.length > 0) {
         persistChatu8SettingsNow();
     }
 
