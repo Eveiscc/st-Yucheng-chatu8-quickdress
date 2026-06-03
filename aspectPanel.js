@@ -65,12 +65,10 @@ function renderStatus(status, settings) {
     status.replaceChildren(mode, value);
 }
 
-function formatLastResultLines(settings, backend) {
+function formatLastResultLines(settings) {
     const lastResult = settings.aspectLastResult;
-    const backendText = backend ? `后端：${backend}` : '后端：未知';
     if (!lastResult) {
         return [
-            backendText,
             '暂无上一次画幅判定。',
             '自动画幅会在生成前读取最终 prompt，再只从 1216x832 / 832x1216 中二选一。',
         ];
@@ -82,7 +80,6 @@ function formatLastResultLines(settings, backend) {
         .map(([key, terms]) => `${matchedGroupLabels[key] || key}：${terms.join('、')}`);
 
     const lines = [
-        backendText,
         `模式：${resultModeLabels[lastResult.mode] || lastResult.mode || '未知'}`,
         lastResult.ok ? '状态：已写入' : '状态：未写入',
         `画幅：${formatPresetPixels(preset)}`,
@@ -90,15 +87,11 @@ function formatLastResultLines(settings, backend) {
         matchedLines.length > 0 ? `命中内容：${matchedLines.join('；')}` : '命中内容：无关键词命中或非自动判断。',
     ].filter(Boolean);
 
-    if (Number.isFinite(Number(lastResult.at))) {
-        lines.push(`时间：${new Date(lastResult.at).toLocaleString()}`);
-    }
-
     return lines;
 }
 
-function showLastResultDetails(settings, backend) {
-    const lines = formatLastResultLines(settings, backend);
+function showLastResultDetails(settings) {
+    const lines = formatLastResultLines(settings);
     const html = lines.map(escapeHtml).join('<br>');
     const toastrApi = globalThis.toastr;
     const notify = toastrApi?.info;
@@ -178,7 +171,11 @@ function renderAspectToolbar(toolbar) {
     infoButton.dataset.qdAspectInfo = 'true';
     infoButton.setAttribute('aria-label', '查看上一次画幅判定详情');
 
-    toolbar.append(title, status, presets, autoLabel, infoButton);
+    const actions = document.createElement('div');
+    actions.className = 'chatu8-qd-aspect-actions';
+    actions.append(autoLabel, infoButton);
+
+    toolbar.append(title, status, presets, actions);
 }
 
 function handleManualPreset(toolbar, presetId) {
@@ -252,7 +249,7 @@ export function createAspectToolbar() {
         const infoButton = event.target.closest('[data-qd-aspect-info]');
         if (infoButton) {
             event.preventDefault();
-            showLastResultDetails(getSettings(), getCurrentAspectBackend());
+            showLastResultDetails(getSettings());
             return;
         }
 

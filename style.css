@@ -35,6 +35,8 @@
     --chatu8-qd-danger-color: #ff4d4f;
     --chatu8-qd-selection-glow: var(--chatu8-qd-ui-accent);
     --chatu8-qd-danger-glow: var(--chatu8-qd-danger-color);
+    --chatu8-qd-scrollbar-thumb: rgba(210, 220, 230, 0.58);
+    --chatu8-qd-scrollbar-track: transparent;
 }
 
 @supports (color: color-mix(in srgb, white 50%, transparent)) {
@@ -341,6 +343,7 @@
 
 .chatu8-qd-aspect-toolbar {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 5px;
     max-width: 100%;
@@ -348,9 +351,13 @@
     border-bottom: 1px solid var(--chatu8-qd-border-color);
     font-size: 13px;
     line-height: 1.15;
-    overflow-x: auto;
+    overflow-x: hidden;
     overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+
+.chatu8-qd-aspect-toolbar::-webkit-scrollbar {
+    display: none;
 }
 
 .chatu8-qd-aspect-title {
@@ -386,7 +393,7 @@
     display: inline-flex;
     flex: 0 0 auto;
     align-items: center;
-    gap: 3px;
+    gap: 2px;
 }
 
 .chatu8-qd-panel .menu_button.chatu8-qd-aspect-preset {
@@ -395,28 +402,26 @@
     min-height: 24px;
     height: 24px;
     padding: 0 6px;
-    font-size: 13px;
-    line-height: 1.15;
-    font-weight: 500;
+    font-size: 12px !important;
+    line-height: 1 !important;
+    font-weight: 400 !important;
     white-space: nowrap;
 }
 
 .chatu8-qd-aspect-auto {
     display: inline-grid;
-    grid-template-columns: 16px max-content;
+    grid-template-columns: 14px max-content;
     align-items: center;
-    gap: 4px;
-    flex: 0 0 auto;
-    margin-left: auto;
-    min-height: 24px;
-    font-size: 13px;
+    gap: 3px;
+    min-height: 22px;
+    font-size: 12px;
     line-height: 1.15;
     color: var(--chatu8-qd-ui-color);
 }
 
 .chatu8-qd-aspect-auto input[type="checkbox"] {
-    width: 15px;
-    height: 15px;
+    width: 14px;
+    height: 14px;
     margin: 0;
 }
 
@@ -428,13 +433,23 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    flex: 0 0 26px;
-    width: 26px;
-    min-width: 26px;
-    height: 24px;
-    min-height: 24px;
+    flex: 0 0 20px;
+    width: 20px;
+    min-width: 20px;
+    height: 20px;
+    min-height: 20px;
     padding: 0;
-    font-size: 13px;
+    font-size: 12px;
+}
+
+.chatu8-qd-aspect-actions {
+    display: grid;
+    grid-template-columns: minmax(0, max-content);
+    align-items: center;
+    justify-items: end;
+    gap: 1px;
+    flex: 0 0 auto;
+    margin-left: auto;
 }
 
 .chatu8-qd-panel .chatu8-qd-aspect-preset.is-active,
@@ -446,12 +461,43 @@
     background: var(--chatu8-qd-button-color);
     box-shadow: inset 0 0 8px var(--chatu8-qd-selection-glow);
     color: var(--chatu8-qd-ui-color);
+    font-weight: 700 !important;
 }
 
 .chatu8-qd-desktop .chatu8-qd-panel-body {
     max-width: 100%;
     overflow-x: auto;
     overflow-y: hidden;
+}
+
+.chatu8-qd-panel-body,
+.chatu8-qd-columns {
+    scrollbar-color: var(--chatu8-qd-scrollbar-thumb) var(--chatu8-qd-scrollbar-track);
+    scrollbar-width: thin;
+}
+
+.chatu8-qd-panel-body::-webkit-scrollbar,
+.chatu8-qd-columns::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+}
+
+.chatu8-qd-panel-body::-webkit-scrollbar-track,
+.chatu8-qd-columns::-webkit-scrollbar-track {
+    background: var(--chatu8-qd-scrollbar-track);
+}
+
+.chatu8-qd-panel-body::-webkit-scrollbar-thumb,
+.chatu8-qd-columns::-webkit-scrollbar-thumb {
+    min-width: 36px;
+    background: var(--chatu8-qd-scrollbar-thumb);
+    border: 0;
+    border-radius: 0;
+}
+
+.chatu8-qd-panel-body::-webkit-scrollbar-corner,
+.chatu8-qd-columns::-webkit-scrollbar-corner {
+    background: transparent;
 }
 
 .chatu8-qd-columns {
@@ -1020,6 +1066,11 @@
     font-size: 11px;
 }
 
+.chatu8-qd-mobile .chatu8-qd-aspect-actions {
+    grid-template-columns: auto 24px;
+    gap: 2px;
+}
+
 .chatu8-qd-mobile .chatu8-qd-panel-header > div:first-child {
     min-width: 0;
 }
@@ -1051,8 +1102,12 @@
     overflow-y: hidden;
     overscroll-behavior-x: contain;
     scroll-snap-type: x proximity;
-    touch-action: pan-y;
+    touch-action: pan-x pan-y;
     -webkit-overflow-scrolling: touch;
+}
+
+.chatu8-qd-mobile .chatu8-qd-columns * {
+    touch-action: pan-x pan-y;
 }
 
 .chatu8-qd-mobile .chatu8-qd-columns.is-horizontal-dragging {
@@ -1077,14 +1132,12 @@
     flex: 0 0 auto;
     min-height: 44px;
     padding: 3px 4px;
-    touch-action: pan-y;
 }
 
 .chatu8-qd-mobile .chatu8-qd-outfit-list {
     max-height: 270px;
     overscroll-behavior-x: auto;
     overscroll-behavior-y: contain;
-    touch-action: pan-y;
 }
 
 .chatu8-qd-mobile .chatu8-qd-character-header {

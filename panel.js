@@ -43,6 +43,10 @@ let hiddenPanelCharacterSignature = '';
 let pendingPanelRenderFrame = 0;
 let pendingViewportFrame = 0;
 let pendingPanelPositionFrame = 0;
+let suppressPanelClickUntil = 0;
+const columnHorizontalScrollThreshold = 7;
+const columnHorizontalScrollClickSuppressMs = 350;
+const columnTouchScrollStateByElement = new WeakMap();
 
 function markPanelStateDirty() {
     panelStateDirty = true;
@@ -476,6 +480,7 @@ export function renderPanelContent() {
 
     const columns = document.createElement('div');
     columns.className = 'chatu8-qd-columns';
+    bindColumnHorizontalScroll(columns);
 
     for (const characterId of activeCharacterIds) {
         columns.append(createCharacterColumn(chatu8, characterId));
@@ -492,6 +497,158 @@ function createEmptyState(text) {
     empty.className = 'chatu8-qd-empty';
     empty.textContent = text;
     return empty;
+}
+
+function bindColumnHorizontalScroll(columns) {
+    columns.addEventListener('pointerdown', onColumnsPointerDown);
+    columns.addEventListener('touchstart', onColumnsTouchStart, { capture: true, passive: true });
+    columns.addEventListener('touchmove', onColumnsTouchMove, { capture: true, passive: false });
+    columns.addEventListener('touchend', onColumnsTouchEnd, { capture: true });
+    columns.addEventListener('touchcancel', onColumnsTouchEnd, { capture: true });
+}
+
+function canScrollColumnsHorizontally(columns) {
+    const panel = columns.closest(`#${ids.panel}`);
+    return Boolean(panel && isPanelMobile(panel) && columns.scrollWidth > columns.clientWidth + 1);
+}
+
+function onColumnsPointerDown(event) {
+    if (event.pointerType === 'touch') {
+        return;
+    }
+
+    if (event.pointerType === 'mouse' && event.button !== 0) {
+        return;
+    }
+
+    const columns = event.currentTarget;
+    if (!canScrollColumnsHorizontally(columns)) {
+        return;
+    }
+
+    const pointerId = event.pointerId;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const startScrollLeft = columns.scrollLeft;
+    let dragging = false;
+    columns.setPointerCapture?.(pointerId);
+
+    const cleanup = () => {
+        columns.classList.remove('is-horizontal-dragging');
+        if (columns.hasPointerCapture?.(pointerId)) {
+            columns.releasePointerCapture(pointerId);
+        }
+        columns.removeEventListener('pointermove', onPointerMove);
+        columns.removeEventListener('pointerup', onPointerEnd);
+        columns.removeEventListener('pointercancel', onPointerEnd);
+    };
+
+    const suppressNextClick = () => {
+        suppressPanelClickUntil = Date.now() + columnHorizontalScrollClickSuppressMs;
+    };
+
+    const onPointerMove = (moveEvent) => {
+        if (moveEvent.pointerId !== pointerId) {
+            return;
+        }
+
+        const deltaX = moveEvent.clientX - startX;
+        const deltaY = moveEvent.clientY - startY;
+        const absX = Math.abs(deltaX);
+        const absY = Math.abs(deltaY);
+
+        if (!dragging) {
+            if (absX < columnHorizontalScrollThreshold && absY < columnHorizontalScrollThreshold) {
+                return;
+            }
+
+            if (absY > absX) {
+                cleanup();
+                return;
+            }
+
+            dragging = true;
+            columns.classList.add('is-horizontal-dragging');
+        }
+
+        moveEvent.preventDefault();
+        columns.scrollLeft = startScrollLeft - deltaX;
+        suppressNextClick();
+    };
+
+    const onPointerEnd = (endEvent) => {
+        if (endEvent.pointerId === pointerId && dragging) {
+            suppressNextClick();
+        }
+        cleanup();
+    };
+
+    columns.addEventListener('pointermove', onPointerMove, { passive: false });
+    columns.addEventListener('pointerup', onPointerEnd);
+    columns.addEventListener('pointercancel', onPointerEnd);
+}
+
+function onColumnsTouchStart(event) {
+    const columns = event.currentTarget;
+    if (event.touches.length !== 1 || !canScrollColumnsHorizontally(columns)) {
+        columnTouchScrollStateByElement.delete(columns);
+        return;
+    }
+
+    const touch = event.touches[0];
+    columnTouchScrollStateByElement.set(columns, {
+        startX: touch.clientX,
+        startY: touch.clientY,
+        startScrollLeft: columns.scrollLeft,
+        dragging: false,
+    });
+}
+
+function onColumnsTouchMove(event) {
+    const columns = event.currentTarget;
+    const state = columnTouchScrollStateByElement.get(columns);
+    if (!state || event.touches.length !== 1) {
+        columnTouchScrollStateByElement.delete(columns);
+        columns.classList.remove('is-horizontal-dragging');
+        return;
+    }
+
+    const touch = event.touches[0];
+    const deltaX = touch.clientX - state.startX;
+    const deltaY = touch.clientY - state.startY;
+    const absX = Math.abs(deltaX);
+    const absY = Math.abs(deltaY);
+
+    if (!state.dragging) {
+        if (absX < columnHorizontalScrollThreshold && absY < columnHorizontalScrollThreshold) {
+            return;
+        }
+
+        if (absY > absX) {
+            columnTouchScrollStateByElement.delete(columns);
+            columns.classList.remove('is-horizontal-dragging');
+            return;
+        }
+
+        state.dragging = true;
+        columns.classList.add('is-horizontal-dragging');
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    columns.scrollLeft = state.startScrollLeft - deltaX;
+    suppressPanelClickUntil = Date.now() + columnHorizontalScrollClickSuppressMs;
+}
+
+function onColumnsTouchEnd(event) {
+    const columns = event.currentTarget;
+    const state = columnTouchScrollStateByElement.get(columns);
+    if (state?.dragging) {
+        suppressPanelClickUntil = Date.now() + columnHorizontalScrollClickSuppressMs;
+    }
+
+    columnTouchScrollStateByElement.delete(columns);
+    columns.classList.remove('is-horizontal-dragging');
 }
 
 function cleanActiveCharacterName(name) {
@@ -700,6 +857,12 @@ function createOutfitRow({ characterId, characterName, outfitId, outfitPreset, c
 }
 
 function onPanelClick(event) {
+    if (Date.now() < suppressPanelClickUntil) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+    }
+
     const previewButton = event.target.closest('[data-qd-preview-trigger]');
     if (previewButton) {
         const row = previewButton.closest('.chatu8-qd-outfit-row');
