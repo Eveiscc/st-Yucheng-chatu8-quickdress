@@ -1,5 +1,14 @@
 const darkSurface = Object.freeze({ r: 26, g: 26, b: 28, a: 1 });
 const lightSurface = Object.freeze({ r: 246, g: 246, b: 242, a: 1 });
+const themeVariableFallbacks = Object.freeze({
+    '--SmartThemeBodyColor': 'rgb(220, 220, 210)',
+    '--SmartThemeChatTintColor': 'rgb(23, 23, 23)',
+    '--SmartThemeBorderColor': 'rgba(125, 125, 125, 0.7)',
+    '--SmartThemeQuoteColor': 'rgb(120, 160, 210)',
+});
+
+let cachedThemeSignature = '';
+let cachedThemeResult = null;
 
 function clampChannel(value) {
     return Math.max(0, Math.min(255, Math.round(value)));
@@ -54,8 +63,8 @@ function parseCssColor(value) {
     return parsed;
 }
 
-function readThemeColor(variableName, fallback) {
-    const raw = getComputedStyle(document.documentElement).getPropertyValue(variableName).trim();
+function readThemeColor(variableName, fallback, themeValues) {
+    const raw = themeValues?.[variableName] || '';
     return parseCssColor(raw) || parseCssColor(fallback);
 }
 
@@ -99,11 +108,23 @@ function solidifySurface(surface, text) {
     return contrast(solid, text) >= 4.5 ? solid : base;
 }
 
-function getThemePalette() {
-    const text = readThemeColor('--SmartThemeBodyColor', 'rgb(220, 220, 210)') || darkSurface;
-    const chat = readThemeColor('--SmartThemeChatTintColor', 'rgb(23, 23, 23)') || darkSurface;
-    const border = readThemeColor('--SmartThemeBorderColor', 'rgba(125, 125, 125, 0.7)') || text;
-    const accent = readThemeColor('--SmartThemeQuoteColor', 'rgb(120, 160, 210)') || text;
+function readThemeValues() {
+    const style = getComputedStyle(document.documentElement);
+    return Object.fromEntries(Object.keys(themeVariableFallbacks)
+        .map((name) => [name, style.getPropertyValue(name).trim()]));
+}
+
+function getThemeSignature(themeValues) {
+    return Object.entries(themeValues)
+        .map(([name, value]) => `${name}:${value}`)
+        .join('\u0000');
+}
+
+function getThemePalette(themeValues) {
+    const text = readThemeColor('--SmartThemeBodyColor', themeVariableFallbacks['--SmartThemeBodyColor'], themeValues) || darkSurface;
+    const chat = readThemeColor('--SmartThemeChatTintColor', themeVariableFallbacks['--SmartThemeChatTintColor'], themeValues) || darkSurface;
+    const border = readThemeColor('--SmartThemeBorderColor', themeVariableFallbacks['--SmartThemeBorderColor'], themeValues) || text;
+    const accent = readThemeColor('--SmartThemeQuoteColor', themeVariableFallbacks['--SmartThemeQuoteColor'], themeValues) || text;
     const surface = solidifySurface(chat, text);
 
     return {
@@ -118,26 +139,51 @@ function getThemePalette() {
     };
 }
 
-export function applyThemeColors(...elements) {
-    const palette = getThemePalette();
-    const variables = {
-        '--chatu8-qd-ui-color': toCssRgb(palette.text),
-        '--chatu8-qd-ui-muted-color': toCssRgb(palette.muted),
-        '--chatu8-qd-ui-accent': toCssRgb(palette.accent),
-        '--chatu8-qd-surface-color': toCssRgb(palette.surface),
-        '--chatu8-qd-elevated-color': toCssRgb(palette.elevated),
-        '--chatu8-qd-hover-color': toCssRgb(palette.hover),
-        '--chatu8-qd-button-color': toCssRgb(palette.button),
-        '--chatu8-qd-border-color': toCssRgb(palette.border),
+function getThemeVariables() {
+    const themeValues = readThemeValues();
+    const signature = getThemeSignature(themeValues);
+    if (cachedThemeResult && cachedThemeSignature === signature) {
+        return cachedThemeResult;
+    }
+
+    const palette = getThemePalette(themeValues);
+    cachedThemeSignature = signature;
+    cachedThemeResult = {
+        signature,
+        variables: {
+            '--chatu8-qd-ui-color': toCssRgb(palette.text),
+            '--chatu8-qd-ui-muted-color': toCssRgb(palette.muted),
+            '--chatu8-qd-ui-accent': toCssRgb(palette.accent),
+            '--chatu8-qd-surface-color': toCssRgb(palette.surface),
+            '--chatu8-qd-elevated-color': toCssRgb(palette.elevated),
+            '--chatu8-qd-hover-color': toCssRgb(palette.hover),
+            '--chatu8-qd-button-color': toCssRgb(palette.button),
+            '--chatu8-qd-border-color': toCssRgb(palette.border),
+        },
     };
+    return cachedThemeResult;
+}
+
+export function applyThemeColors(...elements) {
+    const { signature, variables } = getThemeVariables();
 
     for (const element of elements) {
         if (!element?.style) {
             continue;
         }
 
+        if (
+            element.dataset?.qdThemeSignature === signature
+            && element.style.getPropertyValue('--chatu8-qd-ui-color') === variables['--chatu8-qd-ui-color']
+        ) {
+            continue;
+        }
+
         for (const [name, value] of Object.entries(variables)) {
             element.style.setProperty(name, value);
+        }
+        if (element.dataset) {
+            element.dataset.qdThemeSignature = signature;
         }
     }
 }

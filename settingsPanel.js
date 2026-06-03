@@ -21,7 +21,7 @@ export function renderSettingsPanel() {
 
     const settings = getSettings();
     applyThemeColors(container);
-    const renderSignature = `${settings.enabled}:${settings.buttonPlacement}:${settings.settingsCollapsed}:${settings.templateEditorOpen}`;
+    const renderSignature = `${settings.enabled}:${settings.aspectFeatureEnabled}:${settings.buttonPlacement}:${settings.settingsCollapsed}:${settings.templateEditorOpen}`;
     if (container.dataset.renderSignature === renderSignature && container.children.length > 0) {
         return;
     }
@@ -39,6 +39,10 @@ export function renderSettingsPanel() {
                 <label class="chatu8-qd-setting-line">
                     <input type="checkbox" data-qd-setting="enabled">
                     <span>启用玉成</span>
+                </label>
+                <label class="chatu8-qd-setting-line">
+                    <input type="checkbox" data-qd-setting="aspectFeatureEnabled">
+                    <span>启用智能画幅</span>
                 </label>
                 <button class="menu_button chatu8-qd-template-toggle" type="button" data-qd-template-toggle aria-expanded="${String(settings.templateEditorOpen)}">
                     <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
@@ -65,7 +69,7 @@ export function renderSettingsPanel() {
                         <span>回复栏上方</span>
                     </button>
                     <button class="menu_button chatu8-qd-floating-reset" type="button" data-qd-reset-floating-position title="将悬浮按钮复位到屏幕中间">
-                        <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+                        <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
                         <span>悬浮按钮复位</span>
                     </button>
                 </div>
@@ -99,6 +103,17 @@ function bindSettingsPanel(container, settings) {
         syncEntryButton();
         syncPanelVisibility();
     });
+
+    const aspectFeatureInput = container.querySelector('[data-qd-setting="aspectFeatureEnabled"]');
+    if (aspectFeatureInput) {
+        aspectFeatureInput.checked = settings.aspectFeatureEnabled;
+        aspectFeatureInput.addEventListener('change', () => {
+            settings.aspectFeatureEnabled = aspectFeatureInput.checked;
+            settings.aspectAutoEnabled = aspectFeatureInput.checked;
+            saveSettingsDebounced();
+            syncPanelVisibility();
+        });
+    }
 
     const templateToggle = container.querySelector('[data-qd-template-toggle]');
     const templateInput = container.querySelector('[data-qd-template-input]');
@@ -173,7 +188,7 @@ function syncCollapsedState(container, settings) {
         icon.classList.toggle('fa-chevron-up', !settings.settingsCollapsed);
     }
 
-    container.dataset.renderSignature = `${settings.enabled}:${settings.buttonPlacement}:${settings.settingsCollapsed}:${settings.templateEditorOpen}`;
+    container.dataset.renderSignature = `${settings.enabled}:${settings.aspectFeatureEnabled}:${settings.buttonPlacement}:${settings.settingsCollapsed}:${settings.templateEditorOpen}`;
 }
 
 function syncTemplateEditor(container, settings) {
@@ -187,5 +202,5 @@ function syncTemplateEditor(container, settings) {
         button.setAttribute('aria-expanded', String(settings.templateEditorOpen));
     }
 
-    container.dataset.renderSignature = `${settings.enabled}:${settings.buttonPlacement}:${settings.settingsCollapsed}:${settings.templateEditorOpen}`;
+    container.dataset.renderSignature = `${settings.enabled}:${settings.aspectFeatureEnabled}:${settings.buttonPlacement}:${settings.settingsCollapsed}:${settings.templateEditorOpen}`;
 }

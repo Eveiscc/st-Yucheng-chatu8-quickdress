@@ -15,7 +15,13 @@ const floatingButtonFallbackHeight = 38;
 const floatingButtonViewportPadding = 8;
 
 function removeElementById(id) {
-    document.getElementById(id)?.remove();
+    const element = document.getElementById(id);
+    if (!element) {
+        return false;
+    }
+
+    element.remove();
+    return true;
 }
 
 function setImportantStyle(element, property, value) {
@@ -35,9 +41,12 @@ function registerQrAssistantButton() {
     const existingIndex = window.qrAssistantExtensionApi
         .findIndex((item) => item?.dom_id === qrAssistantButtonConfig.dom_id);
     if (existingIndex >= 0) {
+        const existing = window.qrAssistantExtensionApi[existingIndex];
         window.qrAssistantExtensionApi[existingIndex] = qrAssistantButtonConfig;
+        return existing !== qrAssistantButtonConfig;
     } else {
         window.qrAssistantExtensionApi.push(qrAssistantButtonConfig);
+        return true;
     }
 }
 
@@ -90,22 +99,28 @@ function bindButtonActivation(element) {
 export function syncEntryButton() {
     const settings = getSettings();
     if (!settings.enabled) {
-        removeElementById(ids.floatingButton);
-        removeElementById(ids.composerContainer);
+        const removedEntry = removeElementById(ids.floatingButton) || removeElementById(ids.composerContainer);
         if (settings.panelOpen) {
             setPanelOpen(false);
         }
-        refreshExternalButtonManagers();
+        if (removedEntry) {
+            refreshExternalButtonManagers();
+        }
         return;
     }
 
     if (settings.buttonPlacement === 'floating') {
-        removeElementById(ids.composerContainer);
+        const removedComposerButton = removeElementById(ids.composerContainer);
         ensureFloatingButton();
-        refreshExternalButtonManagers();
+        if (removedComposerButton) {
+            refreshExternalButtonManagers();
+        }
     } else {
-        removeElementById(ids.floatingButton);
-        ensureComposerButton();
+        const removedFloatingButton = removeElementById(ids.floatingButton);
+        const composerResult = ensureComposerButton();
+        if (removedFloatingButton || composerResult?.changed) {
+            refreshExternalButtonManagers();
+        }
     }
 }
 
@@ -117,7 +132,7 @@ function ensureFloatingButton() {
         applyFloatingButtonBaseStyles(button);
         applyThemeColors(button);
         applyFloatingButtonPosition(button, settings.floatingButtonPosition);
-        return button;
+        return { button, changed: false };
     }
 
     button = document.createElement('button');
@@ -132,7 +147,7 @@ function ensureFloatingButton() {
     applyFloatingButtonBaseStyles(button);
     applyThemeColors(button);
     applyFloatingButtonPosition(button, settings.floatingButtonPosition);
-    return button;
+    return { button, changed: true };
 }
 
 function applyFloatingButtonBaseStyles(button) {
@@ -254,7 +269,7 @@ function bindFloatingButtonDrag(button) {
         setPosition: (position) => {
             const settings = getSettings();
             settings.floatingButtonPosition = position;
-            applyFloatingButtonPosition(button, position);
+            setFloatingButtonFixedPosition(button, position);
         },
         onDragEnd: () => saveSettingsDebounced(),
     });
@@ -284,18 +299,19 @@ function getComposerMount() {
 }
 
 function ensureComposerButton() {
-    registerQrAssistantButton();
+    const registrationChanged = registerQrAssistantButton();
 
     const mount = getComposerMount();
     if (!mount) {
-        refreshExternalButtonManagers();
-        return null;
+        return { button: null, changed: registrationChanged };
     }
 
     let button = document.getElementById(ids.composerContainer);
+    let changed = registrationChanged;
     if (button && button.tagName !== 'DIV') {
         button.remove();
         button = null;
+        changed = true;
     }
 
     if (!button) {
@@ -306,13 +322,17 @@ function ensureComposerButton() {
         button.tabIndex = 0;
         button.title = '玉成-智绘姬快速换装';
         button.dataset.qdExternalButton = 'true';
-        button.dataset.extensionId = 'st-yucheng-chatu8-quick-dress';
+        button.dataset.extensionId = 'st-Yucheng-chatu8-quickdress';
         button.dataset.extensionName = '玉成-智绘姬快速换装';
         button.setAttribute('aria-label', '打开玉成-换装面板');
         button.append(createQrButtonContent('fa-solid fa-shirt', '玉成'));
         bindButtonActivation(button);
+        changed = true;
     }
 
+    if (button.classList.contains('is-send-form-fallback') !== mount.fallback) {
+        changed = true;
+    }
     button.classList.toggle('is-send-form-fallback', mount.fallback);
 
     if (button.parentElement !== mount.anchor) {
@@ -321,9 +341,9 @@ function ensureComposerButton() {
         } else {
             mount.anchor.append(button);
         }
+        changed = true;
     }
 
     applyThemeColors(button);
-    refreshExternalButtonManagers();
-    return button;
+    return { button, changed };
 }

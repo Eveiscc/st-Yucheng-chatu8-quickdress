@@ -40,8 +40,35 @@ export function bindDragHandle(handle, options) {
         }
 
         const startRect = target.getBoundingClientRect();
+        const boundsRect = typeof options.getBounds === 'function'
+            ? options.getBounds()
+            : { width: window.innerWidth, height: window.innerHeight };
         const startPosition = options.getPosition(startRect);
         let didMove = false;
+        let pendingFrame = 0;
+        let pendingPosition = null;
+
+        const flushPendingPosition = () => {
+            if (!pendingPosition) {
+                return;
+            }
+
+            const position = pendingPosition;
+            pendingPosition = null;
+            options.setPosition(position);
+        };
+
+        const schedulePositionUpdate = (position) => {
+            pendingPosition = position;
+            if (pendingFrame) {
+                return;
+            }
+
+            pendingFrame = requestAnimationFrame(() => {
+                pendingFrame = 0;
+                flushPendingPosition();
+            });
+        };
 
         const onPointerMove = (moveEvent) => {
             const nextPosition = {
@@ -62,11 +89,17 @@ export function bindDragHandle(handle, options) {
             }
 
             moveEvent.preventDefault();
-            const clamped = clampPosition(nextPosition, target.getBoundingClientRect(), options.getBounds());
-            options.setPosition(clamped);
+            const clamped = clampPosition(nextPosition, startRect, boundsRect);
+            schedulePositionUpdate(clamped);
         };
 
         const onPointerUp = () => {
+            if (pendingFrame) {
+                cancelAnimationFrame(pendingFrame);
+                pendingFrame = 0;
+            }
+            flushPendingPosition();
+
             if (handle.hasPointerCapture?.(event.pointerId)) {
                 handle.releasePointerCapture(event.pointerId);
             }

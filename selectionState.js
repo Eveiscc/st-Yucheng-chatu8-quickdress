@@ -37,10 +37,6 @@ function updateSelectionOrder(characterId, outfitId, checked) {
     }
 }
 
-function getHiddenOutfitSet(characterId) {
-    return new Set(getMapArray(getSettings().hiddenOutfitsByCharacter, characterId));
-}
-
 function revealEnabledOutfits(characterId, enabledIds) {
     const settings = getSettings();
     const hiddenIds = getMapArray(settings.hiddenOutfitsByCharacter, characterId);
@@ -135,7 +131,7 @@ export function resetDraftOutfitsFromChatu8(chatu8) {
     return changed;
 }
 
-export function setDraftOutfitChecked(characterId, outfitId, checked) {
+export function setDraftOutfitChecked(characterId, outfitId, checked, { persist = true } = {}) {
     const settings = getSettings();
     const currentIds = getMapArray(settings.draftOutfitsByCharacter, characterId)
         .filter((id) => id !== outfitId);
@@ -143,7 +139,9 @@ export function setDraftOutfitChecked(characterId, outfitId, checked) {
 
     settings.draftOutfitsByCharacter[characterId] = uniqueStrings(nextIds);
     updateSelectionOrder(characterId, outfitId, checked);
-    saveSettingsDebounced();
+    if (persist) {
+        saveSettingsDebounced();
+    }
 }
 
 export function getLatestSelectionsByCharacter(chatu8) {
@@ -317,13 +315,16 @@ export function getOutfitScrollTop(characterId) {
     return Number.isFinite(value) && value > 0 ? value : 0;
 }
 
-export function setOutfitScrollTop(characterId, scrollTop) {
+export function setOutfitScrollTop(characterId, scrollTop, { persist = true } = {}) {
     const settings = getSettings();
     const nextValue = Math.max(0, Math.round(Number(scrollTop) || 0));
     if (settings.outfitScrollTopByCharacter[characterId] === nextValue) {
-        return;
+        return false;
     }
 
     settings.outfitScrollTopByCharacter[characterId] = nextValue;
-    saveSettingsDebounced();
+    if (persist) {
+        saveSettingsDebounced();
+    }
+    return true;
 }

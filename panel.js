@@ -5,6 +5,7 @@ import { getSettings } from './settings.js';
 import { applyThemeColors } from './themeColors.js';
 import {
     appendTextToInput,
+    clearChatu8DerivedCache,
     getActiveCharacterIds,
     getChatu8Settings,
     getPhotoImageId,
@@ -29,15 +30,134 @@ import {
     splitOutfitsByCurrentActivation,
 } from './selectionState.js';
 import { bindOutfitPreview, hidePreview } from './preview.js';
+import { createAspectToolbar } from './aspectPanel.js';
 
 let viewportListenersBound = false;
 let outfitInputSerial = 0;
 let deleteMode = false;
 let deleteOutfitsByCharacter = {};
+let panelStateDirty = false;
+let pendingScrollFrame = 0;
+const pendingScrollTopByCharacter = new Map();
+let hiddenPanelCharacterIds = new Set();
+let hiddenPanelCharacterSignature = '';
+let pendingPanelRenderFrame = 0;
+
+function markPanelStateDirty() {
+    panelStateDirty = true;
+}
+
+function commitPendingScrollTops() {
+    let changed = false;
+    for (const [characterId, scrollTop] of pendingScrollTopByCharacter.entries()) {
+        changed = setOutfitScrollTop(characterId, scrollTop, { persist: false }) || changed;
+    }
+    pendingScrollTopByCharacter.clear();
+    if (changed) {
+        markPanelStateDirty();
+    }
+}
+
+function flushPendingScrollTops() {
+    if (pendingScrollFrame) {
+        cancelAnimationFrame(pendingScrollFrame);
+        pendingScrollFrame = 0;
+    }
+    commitPendingScrollTops();
+}
+
+function flushPanelState({ persist = true } = {}) {
+    flushPendingScrollTops();
+    if (!panelStateDirty) {
+        return false;
+    }
+
+    panelStateDirty = false;
+    if (persist) {
+        saveSettingsDebounced();
+    }
+    return true;
+}
+
+function rememberOutfitScrollTop(characterId, scrollTop) {
+    pendingScrollTopByCharacter.set(characterId, scrollTop);
+    if (pendingScrollFrame) {
+        return;
+    }
+
+    pendingScrollFrame = requestAnimationFrame(() => {
+        pendingScrollFrame = 0;
+        commitPendingScrollTops();
+    });
+}
+
+function getPanelCharacterSignature(chatu8) {
+    return [
+        String(chatu8?.characterEnablePresetId || ''),
+        ...getActiveCharacterIds(chatu8),
+    ].join('\u0000');
+}
+
+function resetHiddenPanelCharacters() {
+    hiddenPanelCharacterIds = new Set();
+    hiddenPanelCharacterSignature = '';
+}
+
+function getVisiblePanelCharacterIds(chatu8) {
+    const signature = getPanelCharacterSignature(chatu8);
+    if (signature !== hiddenPanelCharacterSignature) {
+        hiddenPanelCharacterSignature = signature;
+        hiddenPanelCharacterIds = new Set();
+    }
+
+    return getActiveCharacterIds(chatu8)
+        .filter((characterId) => !hiddenPanelCharacterIds.has(characterId));
+}
+
+function cancelScheduledPanelRender() {
+    if (!pendingPanelRenderFrame) {
+        return;
+    }
+
+    cancelAnimationFrame(pendingPanelRenderFrame);
+    pendingPanelRenderFrame = 0;
+}
+
+function schedulePanelRender() {
+    if (pendingPanelRenderFrame) {
+        return;
+    }
+
+    pendingPanelRenderFrame = requestAnimationFrame(() => {
+        pendingPanelRenderFrame = 0;
+        if (getSettings().enabled && getSettings().panelOpen) {
+            renderPanelContent();
+        }
+    });
+}
+
+function showPanelOpeningState(panel) {
+    const body = panel.querySelector('[data-qd-body]');
+    const latest = panel.querySelector('[data-qd-latest]');
+    if (body) {
+        body.replaceChildren(createEmptyState('正在同步智绘姬角色...'));
+    }
+    if (latest) {
+        latest.textContent = '正在同步智绘姬角色...';
+        latest.title = '';
+    }
+    syncModeButtons(panel);
+}
 
 export function setPanelOpen(open) {
     const settings = getSettings();
-    settings.panelOpen = Boolean(open);
+    const nextOpen = Boolean(open);
+    if (!nextOpen) {
+        flushPanelState({ persist: false });
+        resetHiddenPanelCharacters();
+    }
+
+    settings.panelOpen = nextOpen;
     if (!settings.panelOpen) {
         deleteMode = false;
         deleteOutfitsByCharacter = {};
@@ -54,13 +174,22 @@ export function syncPanelVisibility() {
     const panel = ensurePanelShell();
     const overlay = panel.closest(`#${ids.overlay}`);
     const isOpen = getSettings().enabled && getSettings().panelOpen;
+    const wasClosed = overlay.hidden || panel.hidden;
     syncPanelViewport();
     overlay.hidden = !isOpen;
     panel.hidden = !isOpen;
 
     if (isOpen) {
-        renderPanelContent();
+        if (wasClosed) {
+            showPanelOpeningState(panel);
+            schedulePanelRender();
+        } else {
+            cancelScheduledPanelRender();
+            renderPanelContent();
+        }
     } else {
+        cancelScheduledPanelRender();
+        flushPanelState();
         hidePreview();
     }
 }
@@ -156,9 +285,9 @@ function ensurePanelShell() {
     panel.setAttribute('aria-label', '玉成-智绘姬快速换装');
     panel.innerHTML = `
         <header class="chatu8-qd-panel-header">
-            <div>
-                <div class="chatu8-qd-panel-title">玉成-智绘姬快速换装</div>
-                <div class="chatu8-qd-panel-subtitle" data-qd-subtitle></div>
+            <div class="chatu8-qd-panel-title-area">
+                <div class="chatu8-qd-panel-title">玉成</div>
+                <div class="chatu8-qd-active-characters" data-qd-active-characters title=""></div>
             </div>
             <div class="chatu8-qd-panel-actions">
                 <button class="menu_button chatu8-qd-icon-button" type="button" data-qd-action="toggle-delete" title="从换装列表移除">
@@ -224,10 +353,18 @@ function bindPanelDrag(panel) {
         setPosition: (position) => {
             const settings = getSettings();
             settings.panelPosition = position;
-            applyPanelPosition(panel, position);
+            setPanelFixedPosition(panel, position);
         },
         onDragEnd: () => saveSettingsDebounced(),
     });
+}
+
+function setPanelFixedPosition(panel, position) {
+    panel.classList.add('is-positioned');
+    panel.style.left = `${position.left}px`;
+    panel.style.top = `${position.top}px`;
+    panel.style.right = 'auto';
+    panel.style.bottom = 'auto';
 }
 
 function applyPanelPosition(panel, position = getSettings().panelPosition) {
@@ -248,40 +385,45 @@ function applyPanelPosition(panel, position = getSettings().panelPosition) {
     }
 
     const clamped = clampPosition(position, panelRect, overlayRect);
-    panel.classList.add('is-positioned');
-    panel.style.left = `${clamped.left}px`;
-    panel.style.top = `${clamped.top}px`;
-    panel.style.right = 'auto';
-    panel.style.bottom = 'auto';
+    setPanelFixedPosition(panel, clamped);
 }
 
 export function renderPanelContent() {
     const panel = ensurePanelShell();
     const body = panel.querySelector('[data-qd-body]');
-    const subtitle = panel.querySelector('[data-qd-subtitle]');
     const chatu8 = getChatu8Settings();
 
+    clearChatu8DerivedCache();
     outfitInputSerial = 0;
     applyThemeColors(panel);
     panel.classList.toggle('is-delete-mode', deleteMode);
     setPanelColumnMetrics(panel, 0);
     body.replaceChildren();
+    syncActiveCharacterSummary(panel, chatu8);
+    if (getSettings().aspectFeatureEnabled) {
+        body.append(createAspectToolbar());
+    }
 
     if (!chatu8) {
-        subtitle.textContent = '未读取到智绘姬设置';
         body.append(createEmptyState('没有读取到智绘姬配置。'));
         updateFooterState(panel, null);
         syncModeButtons(panel);
         return;
     }
 
-    const activePresetId = chatu8.characterEnablePresetId || '';
-    const activeCharacterIds = getActiveCharacterIds(chatu8);
+    const allActiveCharacterIds = getActiveCharacterIds(chatu8);
+    const activeCharacterIds = getVisiblePanelCharacterIds(chatu8);
     setPanelColumnMetrics(panel, activeCharacterIds.length);
-    subtitle.textContent = activePresetId ? `当前角色列表：${activePresetId}` : '未选择角色启用列表';
+
+    if (allActiveCharacterIds.length === 0) {
+        body.append(createEmptyState('当前启用角色列表为空。'));
+        updateFooterState(panel, chatu8);
+        syncModeButtons(panel);
+        return;
+    }
 
     if (activeCharacterIds.length === 0) {
-        body.append(createEmptyState('当前启用角色列表为空。'));
+        body.append(createEmptyState('当前启用角色已从玉成面板隐藏；刷新或重新保存智绘姬激活角色方案后会重新进入。'));
         updateFooterState(panel, chatu8);
         syncModeButtons(panel);
         return;
@@ -307,12 +449,43 @@ function createEmptyState(text) {
     return empty;
 }
 
+function cleanActiveCharacterName(name) {
+    const value = String(name || '').trim();
+    const withoutBracketParts = value.replace(/\[[^\]]*]\s*/g, '').trim();
+    return withoutBracketParts || value;
+}
+
+function getActiveCharacterDisplayNames(chatu8) {
+    return getActiveCharacterIds(chatu8)
+        .map((characterId) => {
+            const characterPreset = chatu8?.characterPresets?.[characterId];
+            return cleanActiveCharacterName(getPrimaryName(characterPreset, characterId));
+        })
+        .filter(Boolean);
+}
+
+function syncActiveCharacterSummary(panel, chatu8) {
+    const target = panel.querySelector('[data-qd-active-characters]');
+    if (!target) {
+        return;
+    }
+
+    const names = getActiveCharacterDisplayNames(chatu8);
+    const text = names.length > 0
+        ? `已启用角色：${names.join('、')}`
+        : '已启用角色：无';
+    target.textContent = text;
+    target.title = text;
+}
+
 function createCharacterColumn(chatu8, characterId) {
     const characterPreset = chatu8.characterPresets?.[characterId];
     const characterName = getPrimaryName(characterPreset, characterId);
-    const candidateIds = characterPreset ? getVisibleCandidateOutfitIds(chatu8, characterId, characterPreset) : [];
-    const removableIds = characterPreset ? getRemovableCandidateOutfitIds(chatu8, characterId, characterPreset) : [];
-    const renderIds = deleteMode ? removableIds : candidateIds;
+    const renderIds = characterPreset
+        ? (deleteMode
+            ? getRemovableCandidateOutfitIds(chatu8, characterId, characterPreset)
+            : getVisibleCandidateOutfitIds(chatu8, characterId, characterPreset))
+        : [];
     const draftIds = new Set(characterPreset ? getDraftOutfitIds(chatu8, characterId, characterPreset) : []);
     const deleteIds = new Set(deleteOutfitsByCharacter[characterId] || []);
     const checkedCount = deleteMode
@@ -334,7 +507,24 @@ function createCharacterColumn(chatu8, characterId) {
     title.textContent = characterName || characterId;
     title.title = characterId;
 
-    titleRow.append(title);
+    const titleMain = document.createElement('div');
+    titleMain.className = 'chatu8-qd-character-title-main';
+    titleMain.append(title);
+
+    if (deleteMode) {
+        const hideCharacterButton = document.createElement('button');
+        hideCharacterButton.type = 'button';
+        hideCharacterButton.className = 'menu_button chatu8-qd-character-hide';
+        hideCharacterButton.dataset.qdAction = 'hide-character-from-panel';
+        hideCharacterButton.title = '仅从玉成面板移除此角色，不改智绘姬设置';
+        hideCharacterButton.innerHTML = '<i class="fa-solid fa-trash-can" aria-hidden="true"></i><span>移除角色</span>';
+        titleMain.append(hideCharacterButton);
+    }
+
+    titleRow.append(titleMain);
+
+    const titleActions = document.createElement('div');
+    titleActions.className = 'chatu8-qd-character-actions';
 
     if (deleteMode && renderIds.length > 0) {
         const selectAllButton = document.createElement('button');
@@ -346,7 +536,11 @@ function createCharacterColumn(chatu8, characterId) {
         selectAllButton.innerHTML = checkedCount === renderIds.length
             ? '<i class="fa-solid fa-square-check" aria-hidden="true"></i>'
             : '<i class="fa-regular fa-square-check" aria-hidden="true"></i>';
-        titleRow.append(selectAllButton);
+        titleActions.append(selectAllButton);
+    }
+
+    if (titleActions.childElementCount > 0) {
+        titleRow.append(titleActions);
     }
 
     const meta = document.createElement('div');
@@ -371,7 +565,7 @@ function createCharacterColumn(chatu8, characterId) {
     list.className = 'chatu8-qd-outfit-list';
     list.dataset.characterId = characterId;
     list.addEventListener('scroll', () => {
-        setOutfitScrollTop(characterId, list.scrollTop);
+        rememberOutfitScrollTop(characterId, list.scrollTop);
     }, { passive: true });
 
     for (const outfitId of renderIds) {
@@ -489,6 +683,7 @@ function onPanelClick(event) {
     if (action === 'close') {
         setPanelOpen(false);
     } else if (action === 'refresh') {
+        resetHiddenPanelCharacters();
         hidePreview();
         deletePanelStatus();
         resetDraftOutfitsFromChatu8(getChatu8Settings());
@@ -510,6 +705,8 @@ function onPanelClick(event) {
         confirmDeleteSelections();
     } else if (action === 'toggle-character-delete-selection') {
         toggleCharacterDeleteSelection(button);
+    } else if (action === 'hide-character-from-panel') {
+        hideCharacterFromPanel(button);
     } else if (action === 'wear') {
         writeCurrentSelections();
     } else if (action === 'replace') {
@@ -530,7 +727,8 @@ function onPanelChange(event) {
     if (deleteMode) {
         setDeleteOutfitChecked(characterId, outfitId, checkbox.checked);
     } else {
-        setDraftOutfitChecked(characterId, outfitId, checkbox.checked);
+        setDraftOutfitChecked(characterId, outfitId, checkbox.checked, { persist: false });
+        markPanelStateDirty();
     }
 
     syncChangedSelection(checkbox);
@@ -602,6 +800,26 @@ function toggleCharacterDeleteSelection(button) {
 
     deletePanelStatus();
     updateFooterState(document.getElementById(ids.panel), getChatu8Settings());
+}
+
+function hideCharacterFromPanel(button) {
+    if (!deleteMode) {
+        return;
+    }
+
+    const column = button.closest('.chatu8-qd-character-column');
+    const characterId = column?.dataset.characterId;
+    if (!column || !characterId) {
+        return;
+    }
+
+    const characterName = column.querySelector('.chatu8-qd-character-name')?.textContent || characterId;
+    hiddenPanelCharacterIds.add(characterId);
+    const { [characterId]: _removed, ...rest } = deleteOutfitsByCharacter;
+    deleteOutfitsByCharacter = rest;
+    hidePreview();
+    renderPanelContent();
+    setPanelStatus(`已从面板移除 ${characterName}；不改智绘姬设置`);
 }
 
 function syncChangedSelection(checkbox) {
@@ -774,32 +992,63 @@ function deletePanelStatus() {
 
 function writeCurrentSelections() {
     const chatu8 = getChatu8Settings();
-    const selections = getLatestSelectionsByCharacter(chatu8);
+    const visibleCharacterIds = new Set(getVisiblePanelCharacterIds(chatu8));
+    const selections = getLatestSelectionsByCharacter(chatu8)
+        .filter((selection) => visibleCharacterIds.has(selection.characterId));
     const text = buildWearInstructions(selections);
 
     if (appendTextToInput(text)) {
+        flushPanelState();
         setPanelStatus(`已写入 ${selections.length} 个角色`);
     }
 }
 
 function replaceCurrentSelections() {
     const chatu8 = getChatu8Settings();
-    const entries = getReplacementOutfitsByCharacter(chatu8);
-    const result = replaceCharacterOutfitsByCharacter(entries);
-    if (result.ok) {
-        const status = buildReplaceStatus(result);
-        renderPanelContent();
-        setPanelStatus(status);
+    const visibleCharacterIds = new Set(getVisiblePanelCharacterIds(chatu8));
+    const entries = getReplacementOutfitsByCharacter(chatu8)
+        .filter((entry) => visibleCharacterIds.has(entry.characterId));
+    if (entries.length === 0) {
+        flushPanelState();
+        setPanelStatus('当前没有可替换的启用角色');
+        return;
     }
+
+    flushPanelState();
+    const result = replaceCharacterOutfitsByCharacter(entries);
+    const status = buildReplaceStatus(result);
+    renderPanelContent();
+    setPanelStatus(status);
+}
+
+function formatCharacterNames(characterIds) {
+    const chatu8 = getChatu8Settings();
+    return [...new Set(characterIds)]
+        .map((characterId) => getPrimaryName(chatu8?.characterPresets?.[characterId], characterId))
+        .filter(Boolean)
+        .join('、');
+}
+
+function buildReplaceFailureStatus(result) {
+    const names = formatCharacterNames(result.failedCharacterIds || []);
+    if (names) {
+        return `替换未完全生效：${names} 未写入`;
+    }
+
+    return '替换未完全生效，请刷新后重试';
 }
 
 function buildReplaceStatus(result) {
+    if (!result.ok) {
+        return buildReplaceFailureStatus(result);
+    }
+
     if (result.savedVisibleCharacterIds.length > 0) {
         return `已替换 ${result.replacedCount} 个角色，并同步智绘姬当前页`;
     }
 
     if (result.visibleSaveFailed) {
-        return `已替换 ${result.replacedCount} 个角色；当前页未能触发原保存`;
+        return `已替换 ${result.replacedCount} 个角色；当前页原保存按钮未触发`;
     }
 
     return `已替换 ${result.replacedCount} 个角色，切换角色后可看到列表`;
@@ -812,6 +1061,7 @@ function confirmDeleteSelections() {
         return;
     }
 
+    flushPanelState();
     const { activeCount, inactiveCount, inactiveOutfitsByCharacter } = splitOutfitsByCurrentActivation(
         getChatu8Settings(),
         deleteOutfitsByCharacter,

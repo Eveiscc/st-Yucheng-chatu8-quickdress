@@ -12,7 +12,8 @@
 - 点击“替换角色服装列表”，将当前勾选结果同步到智绘姬并保存。
 - 点击“立即穿上”，向聊天输入框追加每名角色最近勾选的一套服装指令，不覆盖原有输入内容。
 - 服装存在参考图时，可以通过图片图标查看预览。
-- 删除模式只会从玉成面板移除未启用服装，不会删除智绘姬中的服装预设，也不会移除当前启用中的服装。
+- 删除模式只会从玉成面板移除未启用服装，或临时移除整名角色；不会删除智绘姬中的服装预设，也不会移除当前启用中的角色或服装。
+- 可在插件设置中启用智能画幅；智能模式只在横图 `1216x832` 和竖图 `832x1216` 之间切换，`1:1` 为手动固定尺寸。
 - 支持桌面端与手机端使用。
 
 ## 安装
@@ -24,7 +25,7 @@
 3. 选择安装第三方扩展，填入：
 
 ```text
-https://github.com/Eveisc/st-yucheng-chatu8-quick-dress
+https://github.com/Eveisc/st-Yucheng-chatu8-quickdress
 ```
 
 4. 完成安装后，刷新 SillyTavern 页面。
@@ -34,7 +35,7 @@ https://github.com/Eveisc/st-yucheng-chatu8-quick-dress
 将本仓库完整放入 SillyTavern 的第三方扩展目录：
 
 ```text
-public/scripts/extensions/third-party/st-yucheng-chatu8-quick-dress
+public/scripts/extensions/third-party/st-Yucheng-chatu8-quickdress
 ```
 
 刷新 SillyTavern 页面即可。
@@ -42,7 +43,7 @@ public/scripts/extensions/third-party/st-yucheng-chatu8-quick-dress
 ## 使用方式
 
 1. 在 SillyTavern 扩展设置中找到“玉成-智绘姬快速换装”。
-2. 勾选“启用玉成”，并选择入口位置。
+2. 勾选“启用玉成”，并选择入口位置；需要画幅识别时，再勾选“启用智能画幅”。
 3. 点击“玉成”按钮打开换装面板。
 4. 点击刷新按钮，同步智绘姬当前激活服装的勾选状态。
 5. 按需要勾选服装：
@@ -56,6 +57,8 @@ public/scripts/extensions/third-party/st-yucheng-chatu8-quick-dress
 - 只能从玉成面板移除未启用服装。
 - 当前仍在智绘姬中启用的服装不会出现在可移除列表中。
 - 移除后，智绘姬中的原服装预设仍会保留。
+- 角色名旁的垃圾桶只会把该角色临时移出玉成面板，不修改智绘姬激活角色方案，也不修改该角色服装。
+- 关闭或刷新玉成面板、或智绘姬激活角色方案发生变化后，临时移出的角色会重新进入面板；如仍不需要，可再次移除。
 - 以后如果需要重新收录，可先在智绘姬角色服装列表中再次启用对应服装，再回到玉成刷新。
 
 ## 说明

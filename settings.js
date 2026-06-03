@@ -6,6 +6,7 @@ import {
     previousDefaultInstructionTemplates,
     settingsSchemaVersion,
 } from './constants.js';
+import { defaultAspectPresetId, isAspectPresetId } from './aspectPresets.js';
 
 function cloneDefaultValue(value) {
     if (Array.isArray(value)) {
@@ -71,6 +72,26 @@ function normalizeNumberMap(value) {
     return normalized;
 }
 
+function normalizeAspectLastResult(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return null;
+    }
+
+    const preset = isAspectPresetId(value.preset) ? String(value.preset) : defaultAspectPresetId;
+    const confidence = Number(value.confidence);
+    const at = Number(value.at);
+    return {
+        mode: String(value.mode || ''),
+        ok: Boolean(value.ok),
+        preset,
+        aspect: String(value.aspect || ''),
+        confidence: Number.isFinite(confidence) ? confidence : null,
+        reason: String(value.reason || '').slice(0, 240),
+        backend: String(value.backend || ''),
+        at: Number.isFinite(at) ? at : Date.now(),
+    };
+}
+
 function migrateSettings(settings) {
     const version = Number(settings.schemaVersion) || 0;
     if (version < 2) {
@@ -78,6 +99,9 @@ function migrateSettings(settings) {
     }
     if (version < 3 && previousDefaultInstructionTemplates.includes(settings.instructionTemplate)) {
         settings.instructionTemplate = defaultInstructionTemplate;
+    }
+    if (version < 5) {
+        settings.aspectFeatureEnabled = Boolean(settings.aspectFeatureEnabled || settings.aspectAutoEnabled);
     }
 
     settings.schemaVersion = settingsSchemaVersion;
@@ -112,6 +136,13 @@ export function getSettings() {
     settings.knownOutfitsByCharacter = normalizeStringArrayMap(settings.knownOutfitsByCharacter);
     settings.outfitScrollTopByCharacter = normalizeNumberMap(settings.outfitScrollTopByCharacter);
     migrateSettings(settings);
+
+    settings.aspectFeatureEnabled = Boolean(settings.aspectFeatureEnabled);
+    settings.aspectAutoEnabled = Boolean(settings.aspectFeatureEnabled && settings.aspectAutoEnabled);
+    settings.aspectManualPreset = isAspectPresetId(settings.aspectManualPreset)
+        ? settings.aspectManualPreset
+        : defaultSettings.aspectManualPreset;
+    settings.aspectLastResult = normalizeAspectLastResult(settings.aspectLastResult);
 
     if (typeof settings.instructionTemplate !== 'string' || !settings.instructionTemplate.trim()) {
         settings.instructionTemplate = defaultInstructionTemplate;

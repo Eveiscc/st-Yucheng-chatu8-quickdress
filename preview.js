@@ -111,7 +111,7 @@ async function loadPreviewImage(imageId) {
         imageCache.set(imageId, imageData || null);
         return imageData || null;
     } catch (error) {
-        console.warn('[chatu8-quick-dress] 读取服装参考图失败:', error);
+        console.warn('[st-Yucheng-chatu8-quickdress] 读取服装参考图失败:', error);
         imageCache.set(imageId, null);
         return null;
     }

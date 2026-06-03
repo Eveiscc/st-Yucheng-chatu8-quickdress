@@ -7,6 +7,7 @@ const listSeparator = '\u0000';
 const characterPresetSelectId = 'character_preset_id';
 const characterOutfitListId = 'char_outfit_list';
 const characterUpdateButtonId = 'character_update';
+let outfitOwnerIndexCache = null;
 
 function isChatu8Settings(value) {
     return Boolean(value)
@@ -186,8 +187,33 @@ export function getEnabledOutfitIds(characterPreset, chatu8 = null, characterId 
         : getCharacterOutfitReferences(characterPreset);
 }
 
-function outfitBelongsToCharacter(outfitPreset, aliasSet) {
-    return splitAliases(outfitPreset?.owner).some((ownerName) => aliasSet.has(normalizeName(ownerName)));
+export function clearChatu8DerivedCache() {
+    outfitOwnerIndexCache = null;
+}
+
+function getOutfitOwnerIndex(outfitPresets) {
+    if (outfitOwnerIndexCache?.source === outfitPresets) {
+        return outfitOwnerIndexCache;
+    }
+
+    const byOwner = new Map();
+    const names = new Map();
+    for (const [outfitId, outfitPreset] of Object.entries(outfitPresets || {})) {
+        names.set(outfitId, getPrimaryName(outfitPreset, outfitId));
+        for (const ownerName of splitAliases(outfitPreset?.owner)) {
+            const owner = normalizeName(ownerName);
+            if (!owner) {
+                continue;
+            }
+
+            const ownerOutfits = byOwner.get(owner) || [];
+            ownerOutfits.push(outfitId);
+            byOwner.set(owner, ownerOutfits);
+        }
+    }
+
+    outfitOwnerIndexCache = { source: outfitPresets, byOwner, names };
+    return outfitOwnerIndexCache;
 }
 
 export function getCandidateOutfitIds(chatu8, characterId, characterPreset) {
@@ -196,9 +222,10 @@ export function getCandidateOutfitIds(chatu8, characterId, characterPreset) {
     const aliasSet = getCharacterAliasSet(characterId, characterPreset);
     const knownIds = rememberKnownOutfits(characterId, enabledIds, outfitPresets);
     const candidateIds = new Set([...knownIds, ...enabledIds]);
+    const ownerIndex = getOutfitOwnerIndex(outfitPresets);
 
-    for (const [outfitId, outfitPreset] of Object.entries(outfitPresets)) {
-        if (outfitBelongsToCharacter(outfitPreset, aliasSet)) {
+    for (const alias of aliasSet) {
+        for (const outfitId of ownerIndex.byOwner.get(alias) || []) {
             candidateIds.add(outfitId);
         }
     }
@@ -211,8 +238,8 @@ export function getCandidateOutfitIds(chatu8, characterId, characterPreset) {
             return leftEnabled ? -1 : 1;
         }
 
-        const leftName = getPrimaryName(outfitPresets[leftId], leftId);
-        const rightName = getPrimaryName(outfitPresets[rightId], rightId);
+        const leftName = ownerIndex.names.get(leftId) || getPrimaryName(outfitPresets[leftId], leftId);
+        const rightName = ownerIndex.names.get(rightId) || getPrimaryName(outfitPresets[rightId], rightId);
         return leftName.localeCompare(rightName, 'zh-Hans-CN');
     });
 }
@@ -248,10 +275,66 @@ function sameStringList(left, right) {
     return left.join(listSeparator) === right.join(listSeparator);
 }
 
+function getResolvedCharacterOutfitIds(chatu8, characterId) {
+    const characterPreset = chatu8?.characterPresets?.[characterId];
+    if (!characterPreset) {
+        return null;
+    }
+
+    return normalizeOutfitIds(chatu8, getCharacterOutfitReferences(characterPreset));
+}
+
+function verifyCharacterOutfitTarget(chatu8, target) {
+    const actualOutfitIds = getResolvedCharacterOutfitIds(chatu8, target.characterId);
+    const expectedOutfitIds = [...target.outfitIds];
+    if (!actualOutfitIds) {
+        return {
+            characterId: target.characterId,
+            expectedOutfitIds,
+            actualOutfitIds: [],
+            ok: false,
+            missing: true,
+        };
+    }
+
+    return {
+        characterId: target.characterId,
+        expectedOutfitIds,
+        actualOutfitIds,
+        ok: sameStringList(actualOutfitIds, expectedOutfitIds),
+        missing: false,
+    };
+}
+
+function verifyCharacterOutfitTargets(chatu8, targets) {
+    return targets.map((target) => verifyCharacterOutfitTarget(chatu8, target));
+}
+
+function reapplyFailedOutfitTargets(chatu8, verifications) {
+    let changed = false;
+
+    for (const verification of verifications) {
+        if (verification.ok || verification.missing) {
+            continue;
+        }
+
+        const characterPreset = chatu8?.characterPresets?.[verification.characterId];
+        if (!characterPreset) {
+            continue;
+        }
+
+        characterPreset.outfits = [...verification.expectedOutfitIds];
+        syncVisibleCharacterOutfitForm(chatu8, verification.characterId, verification.expectedOutfitIds);
+        changed = true;
+    }
+
+    return changed;
+}
+
 function persistChatu8SettingsNow() {
     saveSettingsDebounced();
     void saveSettings().catch((error) => {
-        console.error('[st-chatu8-quick-dress] Failed to save Chatu8 settings:', error);
+        console.error('[st-Yucheng-chatu8-quickdress] Failed to save Chatu8 settings:', error);
     });
 }
 
@@ -368,26 +451,47 @@ export function replaceCharacterOutfits(characterId, outfitIds) {
     if (!result) {
         return {
             ok: false,
+            targetCount: 1,
             replacedCount: 0,
             changedCount: 0,
             savedVisibleCharacterIds: [],
             visibleSaveFailed: false,
             missingCharacterIds: [characterId],
+            failedCharacterIds: [characterId],
+            verifiedCharacterIds: [],
+            verificationFailures: [],
         };
     }
 
     const visibleSave = syncVisibleCharacterOutfitForm(chatu8, result.characterId, result.outfitIds);
-    if (result.changed || visibleSave.saved) {
+    let verifications = verifyCharacterOutfitTargets(chatu8, [{
+        characterId: result.characterId,
+        outfitIds: result.outfitIds,
+    }]);
+    if (verifications.some((verification) => !verification.ok)) {
+        reapplyFailedOutfitTargets(chatu8, verifications);
+        verifications = verifyCharacterOutfitTargets(chatu8, [{
+            characterId: result.characterId,
+            outfitIds: result.outfitIds,
+        }]);
+    }
+
+    const failures = verifications.filter((verification) => !verification.ok);
+    if (result.changed || visibleSave.saved || failures.length === 0) {
         persistChatu8SettingsNow();
     }
 
     return {
-        ok: true,
-        replacedCount: 1,
+        ok: failures.length === 0,
+        targetCount: 1,
+        replacedCount: failures.length === 0 ? 1 : 0,
         changedCount: result.changed ? 1 : 0,
         savedVisibleCharacterIds: visibleSave.saved ? [result.characterId] : [],
         visibleSaveFailed: visibleSave.visible && !visibleSave.saved,
         missingCharacterIds: [],
+        failedCharacterIds: failures.map((failure) => failure.characterId),
+        verifiedCharacterIds: failures.length === 0 ? [result.characterId] : [],
+        verificationFailures: failures,
     };
 }
 
@@ -395,12 +499,17 @@ export function replaceCharacterOutfitsByCharacter(entries) {
     const chatu8 = getChatu8Settings();
     const summary = {
         ok: false,
+        targetCount: Array.isArray(entries) ? entries.length : 0,
         replacedCount: 0,
         changedCount: 0,
         savedVisibleCharacterIds: [],
         visibleSaveFailed: false,
         missingCharacterIds: [],
+        failedCharacterIds: [],
+        verifiedCharacterIds: [],
+        verificationFailures: [],
     };
+    const targets = [];
 
     for (const entry of entries) {
         const result = replaceCharacterOutfitsInSettings(chatu8, entry.characterId, entry.outfitIds);
@@ -410,9 +519,11 @@ export function replaceCharacterOutfitsByCharacter(entries) {
         }
 
         const visibleSave = syncVisibleCharacterOutfitForm(chatu8, result.characterId, result.outfitIds);
-        summary.ok = true;
-        summary.replacedCount += 1;
         summary.changedCount += result.changed ? 1 : 0;
+        targets.push({
+            characterId: result.characterId,
+            outfitIds: [...result.outfitIds],
+        });
 
         if (visibleSave.saved) {
             summary.savedVisibleCharacterIds.push(result.characterId);
@@ -421,7 +532,24 @@ export function replaceCharacterOutfitsByCharacter(entries) {
         }
     }
 
-    if (summary.ok || summary.savedVisibleCharacterIds.length > 0) {
+    let verifications = verifyCharacterOutfitTargets(chatu8, targets);
+    if (verifications.some((verification) => !verification.ok)) {
+        reapplyFailedOutfitTargets(chatu8, verifications);
+        verifications = verifyCharacterOutfitTargets(chatu8, targets);
+    }
+
+    summary.verificationFailures = verifications.filter((verification) => !verification.ok);
+    summary.verifiedCharacterIds = verifications
+        .filter((verification) => verification.ok)
+        .map((verification) => verification.characterId);
+    summary.failedCharacterIds = [...new Set([
+        ...summary.missingCharacterIds,
+        ...summary.verificationFailures.map((failure) => failure.characterId),
+    ])];
+    summary.replacedCount = summary.verifiedCharacterIds.length;
+    summary.ok = targets.length > 0 && summary.failedCharacterIds.length === 0;
+
+    if (targets.length > 0 || summary.savedVisibleCharacterIds.length > 0) {
         persistChatu8SettingsNow();
     }
 
