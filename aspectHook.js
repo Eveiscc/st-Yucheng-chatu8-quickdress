@@ -1,5 +1,6 @@
 import { eventSource } from '../../../../script.js';
 import { applyAspectPreset } from './aspectBridge.js';
+import { isAutoAspectPresetId } from './aspectPresets.js';
 import { analyzeAspectPrompt } from './aspectRules.js';
 import { recordAspectResult } from './aspectState.js';
 import { getSettings } from './settings.js';
@@ -74,6 +75,20 @@ function maybeApplyAspectToRequest(payload) {
     }
 
     const decision = analyzeAspectPrompt(payload.prompt);
+    if (!isAutoAspectPresetId(decision.preset)) {
+        const reason = `智能画幅只允许 1216x832 或 832x1216，拒绝写入：${decision.preset || '未知预设'}`;
+        notifyAspectFailed(reason);
+        recordAspectResultSafely({
+            mode: 'auto',
+            ok: false,
+            preset: decision.preset,
+            aspect: decision.aspect,
+            matched: decision.matched,
+            reason,
+        });
+        return;
+    }
+
     const writeResult = applyAspectPreset(decision.preset);
     if (writeResult.ok) {
         payload.width = writeResult.width;
@@ -88,8 +103,8 @@ function maybeApplyAspectToRequest(payload) {
         ok: writeResult.ok,
         preset: decision.preset,
         aspect: decision.aspect,
-        confidence: decision.confidence,
         backend: writeResult.backend,
+        matched: decision.matched,
         reason: writeResult.ok ? decision.reason : writeResult.reason,
     });
 }

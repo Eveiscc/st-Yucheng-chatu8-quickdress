@@ -339,9 +339,9 @@
 }
 
 .chatu8-qd-aspect-status {
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     min-width: 72px;
-    max-width: 150px;
+    max-width: 168px;
     color: var(--chatu8-qd-ui-muted-color);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -356,11 +356,12 @@
 }
 
 .chatu8-qd-aspect-preset {
-    min-width: 34px;
-    width: 34px;
+    min-width: 40px;
+    width: auto;
     min-height: 26px;
     height: 26px;
-    padding: 0 5px;
+    padding: 0 7px;
+    white-space: nowrap;
 }
 
 .chatu8-qd-aspect-auto {
@@ -369,6 +370,7 @@
     align-items: center;
     gap: 4px;
     flex: 0 0 auto;
+    margin-left: auto;
     min-height: 26px;
     color: var(--chatu8-qd-ui-color);
 }

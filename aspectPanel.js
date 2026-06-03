@@ -8,15 +8,44 @@ import {
 } from './aspectState.js';
 import { getSettings } from './settings.js';
 
-function formatConfidence(value) {
-    return Number.isFinite(Number(value)) ? `${Math.round(Number(value) * 100)}%` : '';
+const matchedGroupLabels = Object.freeze({
+    portraitStrong: '竖向强信号',
+    portraitMedium: '竖向辅助信号',
+    multi: '多人信号',
+    relation: '横向关系信号',
+    wide: '远景信号',
+    environment: '环境信号',
+    lying: '横向动作信号',
+    square: '近景/头像信号',
+});
+
+const resultModeLabels = Object.freeze({
+    auto: '智能判断',
+    manual: '手动固定',
+    'auto-toggle': '智能开关',
+});
+
+const htmlEscapes = Object.freeze({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+});
+
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (char) => htmlEscapes[char]);
+}
+
+function getPresetStatusLabel(preset) {
+    return preset.shortLabel || preset.id;
 }
 
 function getStatusText(settings) {
     const manualPreset = getAspectPreset(settings.aspectManualPreset);
     const lastResult = settings.aspectLastResult;
     if (!settings.aspectAutoEnabled) {
-        return `手动：${manualPreset.id}`;
+        return `手动：${getPresetStatusLabel(manualPreset)}`;
     }
 
     if (lastResult?.mode === 'auto' && lastResult.ok && lastResult.preset) {
@@ -26,28 +55,63 @@ function getStatusText(settings) {
     return '智能：待判定';
 }
 
-function getLastResultTitle(settings, backend) {
+function formatLastResultLines(settings, backend) {
     const lastResult = settings.aspectLastResult;
     const backendText = backend ? `后端：${backend}` : '后端：未知';
     if (!lastResult) {
-        return `${backendText}\n暂无画幅判定`;
+        return [
+            backendText,
+            '暂无上一次画幅判定。',
+            '智能画幅会在生成前读取最终 prompt，再只从 1216x832 / 832x1216 中二选一。',
+        ];
     }
 
-    const confidence = formatConfidence(lastResult.confidence);
-    return [
+    const preset = getAspectPreset(lastResult.preset);
+    const matchedLines = Object.entries(lastResult.matched || {})
+        .filter(([, terms]) => Array.isArray(terms) && terms.length > 0)
+        .map(([key, terms]) => `${matchedGroupLabels[key] || key}：${terms.join('、')}`);
+
+    const lines = [
         backendText,
-        lastResult.ok ? '状态：已生效' : '状态：未生效',
-        lastResult.preset ? `画幅：${lastResult.preset}` : '',
-        confidence ? `信心：${confidence}` : '',
-        lastResult.reason ? `原因：${lastResult.reason}` : '',
-    ].filter(Boolean).join('\n');
+        `模式：${resultModeLabels[lastResult.mode] || lastResult.mode || '未知'}`,
+        lastResult.ok ? '状态：已写入' : '状态：未写入',
+        `画幅：${preset.shortLabel}（${preset.width}x${preset.height}）`,
+        lastResult.reason ? `判定依据：${lastResult.reason}` : '',
+        matchedLines.length > 0 ? `命中内容：${matchedLines.join('；')}` : '命中内容：无关键词命中或非智能判断。',
+    ].filter(Boolean);
+
+    if (Number.isFinite(Number(lastResult.at))) {
+        lines.push(`时间：${new Date(lastResult.at).toLocaleString()}`);
+    }
+
+    return lines;
+}
+
+function showLastResultDetails(settings, backend) {
+    const lines = formatLastResultLines(settings, backend);
+    const html = lines.map(escapeHtml).join('<br>');
+    const toastrApi = globalThis.toastr;
+    const notify = toastrApi?.info;
+    if (typeof notify === 'function') {
+        notify.call(toastrApi, html, '画幅详情', {
+            escapeHtml: false,
+            closeButton: true,
+            timeOut: 0,
+            extendedTimeOut: 0,
+        });
+        return;
+    }
+
+    window.alert(lines.join('\n'));
 }
 
 function createButton(className, title, html) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = className;
-    button.title = title;
+    if (title) {
+        button.title = title;
+    }
     button.innerHTML = html;
     return button;
 }
@@ -56,10 +120,7 @@ function renderAspectToolbar(toolbar) {
     const settings = getSettings();
     const backend = getCurrentAspectBackend();
     const supported = isAspectBackendSupported(backend);
-    const lastResult = settings.aspectLastResult;
-    const activePresetId = settings.aspectAutoEnabled && lastResult?.mode === 'auto' && lastResult.ok
-        ? lastResult.preset
-        : settings.aspectManualPreset;
+    const activePresetId = settings.aspectAutoEnabled ? '' : settings.aspectManualPreset;
 
     toolbar.replaceChildren();
     toolbar.dataset.qdAspectBackend = backend || '';
@@ -72,7 +133,6 @@ function renderAspectToolbar(toolbar) {
     const status = document.createElement('div');
     status.className = 'chatu8-qd-aspect-status';
     status.textContent = getStatusText(settings);
-    status.title = getLastResultTitle(settings, backend);
 
     const presets = document.createElement('div');
     presets.className = 'chatu8-qd-aspect-presets';
@@ -102,18 +162,22 @@ function renderAspectToolbar(toolbar) {
 
     const infoButton = createButton(
         'menu_button chatu8-qd-aspect-icon',
-        getLastResultTitle(settings, backend),
+        '',
         '<i class="fa-solid fa-circle-info" aria-hidden="true"></i>',
     );
     infoButton.dataset.qdAspectInfo = 'true';
+    infoButton.setAttribute('aria-label', '查看上一次画幅判定详情');
 
     toolbar.append(title, status, presets, autoLabel, infoButton);
 }
 
 function handleManualPreset(toolbar, presetId) {
+    if (getSettings().aspectAutoEnabled) {
+        setAspectAutoEnabled(false);
+    }
+
     const writeResult = applyAspectPreset(presetId);
     if (writeResult.ok) {
-        setAspectAutoEnabled(false);
         setAspectManualPreset(presetId);
     }
 
@@ -129,14 +193,7 @@ function handleManualPreset(toolbar, presetId) {
 }
 
 function handleAutoToggle(toolbar, checked) {
-    const settings = getSettings();
     setAspectAutoEnabled(checked);
-    recordAspectResult({
-        mode: 'auto-toggle',
-        ok: true,
-        preset: settings.aspectManualPreset,
-        reason: checked ? '智能画幅已开启，生成前判定' : '智能画幅已关闭',
-    });
     renderAspectToolbar(toolbar);
 }
 
@@ -182,6 +239,13 @@ export function createAspectToolbar() {
     toolbar.dataset.qdNoDrag = 'true';
 
     toolbar.addEventListener('click', (event) => {
+        const infoButton = event.target.closest('[data-qd-aspect-info]');
+        if (infoButton) {
+            event.preventDefault();
+            showLastResultDetails(getSettings(), getCurrentAspectBackend());
+            return;
+        }
+
         const presetButton = event.target.closest('[data-qd-aspect-preset]');
         if (presetButton) {
             event.preventDefault();

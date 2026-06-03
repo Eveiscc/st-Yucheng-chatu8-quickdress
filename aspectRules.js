@@ -1,4 +1,4 @@
-import { getAspectPresetByAspect } from './aspectPresets.js';
+import { getAutoAspectPresetByAspect } from './aspectPresets.js';
 
 const positiveHeaders = new Set([
     'tag think',
@@ -216,16 +216,15 @@ function matchTerms(text, terms) {
     return terms.filter((term) => createTermPattern(term).test(text));
 }
 
-function clampConfidence(value) {
-    return Math.max(0.5, Math.min(0.95, Number(value.toFixed(2))));
-}
+function buildResult(aspect, reason, matched = {}) {
+    const preset = getAutoAspectPresetByAspect(aspect);
+    if (!preset) {
+        throw new Error(`Unsupported auto aspect: ${String(aspect || '')}`);
+    }
 
-function buildResult(aspect, confidence, reason, matched = {}) {
-    const preset = getAspectPresetByAspect(aspect);
     return {
         aspect,
         preset: preset.id,
-        confidence: clampConfidence(confidence),
         reason,
         matched,
     };
@@ -246,10 +245,6 @@ export function analyzeAspectPrompt(prompt) {
     const lying = matchTerms(positiveText, lyingTerms);
     const square = matchTerms(positiveText, squareTerms);
     const portraitScore = portraitStrong.length * 3 + portraitMedium.length * 2;
-    const landscapeScore = multi.length * 3
-        + relation.length * 3
-        + lying.length * 2
-        + (wide.length > 0 && environment.length > 0 ? 3 : 0);
     const matched = {
         portraitStrong,
         portraitMedium,
@@ -265,36 +260,35 @@ export function analyzeAspectPrompt(prompt) {
         const term = firstReasonTerm([relation, multi, wide, environment, lying]);
         return buildResult(
             'landscape',
-            0.76 + landscapeScore * 0.03,
             term ? `多人或横向关系信号：${term}` : '多人构图更适合横图',
             matched,
         );
     }
 
     if (relation.length > 0) {
-        return buildResult('landscape', 0.74 + landscapeScore * 0.03, `横向关系信号：${relation[0]}`, matched);
+        return buildResult('landscape', `横向关系信号：${relation[0]}`, matched);
     }
 
     if (wide.length > 0 && environment.length > 0 && portraitStrong.length === 0) {
-        return buildResult('landscape', 0.72 + landscapeScore * 0.03, `远景和环境信号：${wide[0]} + ${environment[0]}`, matched);
+        return buildResult('landscape', `远景和环境信号：${wide[0]} + ${environment[0]}`, matched);
     }
 
     if (lying.length > 0 && portraitStrong.length === 0) {
-        return buildResult('landscape', 0.7 + landscapeScore * 0.03, `横向展开动作：${lying[0]}`, matched);
+        return buildResult('landscape', `横向展开动作：${lying[0]}`, matched);
     }
 
     if (portraitScore > 0) {
         const term = firstReasonTerm([portraitStrong, portraitMedium]);
-        return buildResult('portrait', 0.74 + portraitScore * 0.03, `全身或下半身锚点：${term}`, matched);
+        return buildResult('portrait', `全身或下半身锚点：${term}`, matched);
     }
 
     if (multi.length > 0) {
-        return buildResult('landscape', 0.68 + landscapeScore * 0.03, `多人构图信号：${multi[0]}`, matched);
+        return buildResult('landscape', `多人构图信号：${multi[0]}`, matched);
     }
 
     if (square.length > 0) {
-        return buildResult('landscape', 0.68 + square.length * 0.03, `近景或肖像信号：${square[0]}，智能模式使用横图`, matched);
+        return buildResult('landscape', `近景或肖像信号：${square[0]}，智能模式使用横图`, matched);
     }
 
-    return buildResult('landscape', 0.55, '没有明确竖图信号，智能模式使用横图', matched);
+    return buildResult('landscape', '没有明确竖图信号，智能模式使用横图', matched);
 }
