@@ -76,7 +76,7 @@ function maybeApplyAspectToRequest(payload) {
 
     const decision = analyzeAspectPrompt(payload.prompt);
     if (!isAutoAspectPresetId(decision.preset)) {
-        const reason = `智能画幅只允许 1216x832 或 832x1216，拒绝写入：${decision.preset || '未知预设'}`;
+        const reason = `自动画幅只允许 1216x832 或 832x1216，拒绝写入：${decision.preset || '未知预设'}`;
         notifyAspectFailed(reason);
         recordAspectResultSafely({
             mode: 'auto',
@@ -131,9 +131,9 @@ export function initAspectHook() {
                 recordAspectResultSafely({
                     mode: 'auto',
                     ok: false,
-                    reason: error?.message || '智能画幅处理失败',
+                    reason: error?.message || '自动画幅处理失败',
                 });
-                notifyAspectFailed(error?.message || '智能画幅处理失败');
+                notifyAspectFailed(error?.message || '自动画幅处理失败');
             }
         }
 

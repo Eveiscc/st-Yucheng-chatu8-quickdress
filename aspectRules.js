@@ -287,8 +287,8 @@ export function analyzeAspectPrompt(prompt) {
     }
 
     if (square.length > 0) {
-        return buildResult('landscape', `近景或肖像信号：${square[0]}，智能模式使用横图`, matched);
+        return buildResult('landscape', `近景或肖像信号：${square[0]}，自动模式使用横图`, matched);
     }
 
-    return buildResult('landscape', '没有明确竖图信号，智能模式使用横图', matched);
+    return buildResult('landscape', '没有明确竖图信号，自动模式使用横图', matched);
 }

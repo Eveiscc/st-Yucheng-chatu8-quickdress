@@ -20,9 +20,9 @@ const matchedGroupLabels = Object.freeze({
 });
 
 const resultModeLabels = Object.freeze({
-    auto: '智能判断',
+    auto: '自动判断',
     manual: '手动固定',
-    'auto-toggle': '智能开关',
+    'auto-toggle': '自动开关',
 });
 
 const htmlEscapes = Object.freeze({
@@ -37,22 +37,32 @@ function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, (char) => htmlEscapes[char]);
 }
 
-function getPresetStatusLabel(preset) {
-    return preset.shortLabel || preset.id;
+function formatPresetPixels(preset) {
+    return `${preset.width}x${preset.height}`;
 }
 
-function getStatusText(settings) {
+function renderStatus(status, settings) {
     const manualPreset = getAspectPreset(settings.aspectManualPreset);
     const lastResult = settings.aspectLastResult;
+    const mode = document.createElement('span');
+    mode.className = 'chatu8-qd-aspect-status-mode';
+
+    const value = document.createElement('span');
+    value.className = 'chatu8-qd-aspect-status-value';
+
     if (!settings.aspectAutoEnabled) {
-        return `手动：${getPresetStatusLabel(manualPreset)}`;
+        mode.textContent = '手动：';
+        value.textContent = formatPresetPixels(manualPreset);
+    } else if (lastResult?.mode === 'auto' && lastResult.ok && lastResult.preset) {
+        const autoPreset = getAspectPreset(lastResult.preset);
+        mode.textContent = '自动：';
+        value.textContent = formatPresetPixels(autoPreset);
+    } else {
+        mode.textContent = '自动：';
+        value.textContent = '待判定';
     }
 
-    if (lastResult?.mode === 'auto' && lastResult.ok && lastResult.preset) {
-        return `智能：${lastResult.preset}`;
-    }
-
-    return '智能：待判定';
+    status.replaceChildren(mode, value);
 }
 
 function formatLastResultLines(settings, backend) {
@@ -62,7 +72,7 @@ function formatLastResultLines(settings, backend) {
         return [
             backendText,
             '暂无上一次画幅判定。',
-            '智能画幅会在生成前读取最终 prompt，再只从 1216x832 / 832x1216 中二选一。',
+            '自动画幅会在生成前读取最终 prompt，再只从 1216x832 / 832x1216 中二选一。',
         ];
     }
 
@@ -75,9 +85,9 @@ function formatLastResultLines(settings, backend) {
         backendText,
         `模式：${resultModeLabels[lastResult.mode] || lastResult.mode || '未知'}`,
         lastResult.ok ? '状态：已写入' : '状态：未写入',
-        `画幅：${preset.shortLabel}（${preset.width}x${preset.height}）`,
+        `画幅：${formatPresetPixels(preset)}`,
         lastResult.reason ? `判定依据：${lastResult.reason}` : '',
-        matchedLines.length > 0 ? `命中内容：${matchedLines.join('；')}` : '命中内容：无关键词命中或非智能判断。',
+        matchedLines.length > 0 ? `命中内容：${matchedLines.join('；')}` : '命中内容：无关键词命中或非自动判断。',
     ].filter(Boolean);
 
     if (Number.isFinite(Number(lastResult.at))) {
@@ -132,7 +142,7 @@ function renderAspectToolbar(toolbar) {
 
     const status = document.createElement('div');
     status.className = 'chatu8-qd-aspect-status';
-    status.textContent = getStatusText(settings);
+    renderStatus(status, settings);
 
     const presets = document.createElement('div');
     presets.className = 'chatu8-qd-aspect-presets';
@@ -149,7 +159,7 @@ function renderAspectToolbar(toolbar) {
 
     const autoLabel = document.createElement('label');
     autoLabel.className = 'chatu8-qd-aspect-auto';
-    autoLabel.title = supported ? '生成前按最终 prompt 智能判定画幅' : '当前后端暂不支持智能画幅写入';
+    autoLabel.title = supported ? '生成前按最终 prompt 自动判定画幅' : '当前后端暂不支持自动画幅写入';
 
     const autoInput = document.createElement('input');
     autoInput.type = 'checkbox';
@@ -157,7 +167,7 @@ function renderAspectToolbar(toolbar) {
     autoInput.dataset.qdAspectAuto = 'true';
 
     const autoText = document.createElement('span');
-    autoText.textContent = '智能画幅';
+    autoText.textContent = '自动画幅';
     autoLabel.append(autoInput, autoText);
 
     const infoButton = createButton(

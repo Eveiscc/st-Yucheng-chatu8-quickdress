@@ -339,12 +339,24 @@
 }
 
 .chatu8-qd-aspect-status {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
     flex: 0 1 auto;
-    min-width: 72px;
-    max-width: 168px;
+    min-width: 76px;
+    max-width: 150px;
     color: var(--chatu8-qd-ui-muted-color);
-    overflow: hidden;
-    text-overflow: ellipsis;
+    line-height: 1.1;
+    white-space: normal;
+}
+
+.chatu8-qd-aspect-status-mode {
+    flex: 0 0 auto;
+    font-size: 0.9em;
+}
+
+.chatu8-qd-aspect-status-value {
+    flex: 0 0 auto;
     white-space: nowrap;
 }
 

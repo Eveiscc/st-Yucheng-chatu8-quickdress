@@ -42,7 +42,7 @@ export function renderSettingsPanel() {
                 </label>
                 <label class="chatu8-qd-setting-line">
                     <input type="checkbox" data-qd-setting="aspectFeatureEnabled">
-                    <span>启用智能画幅</span>
+                    <span>启用自动画幅</span>
                 </label>
                 <button class="menu_button chatu8-qd-template-toggle" type="button" data-qd-template-toggle aria-expanded="${String(settings.templateEditorOpen)}">
                     <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
