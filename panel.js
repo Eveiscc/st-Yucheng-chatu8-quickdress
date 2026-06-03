@@ -10,7 +10,6 @@ import {
     getChatu8Settings,
     getPhotoImageId,
     getPrimaryName,
-    getSecondaryName,
     replaceCharacterOutfitsByCharacter,
 } from './chatu8Bridge.js';
 import {
@@ -613,33 +612,12 @@ function getFirstAliasText(value) {
     return text.split('|').map((part) => part.trim()).find(Boolean) || text;
 }
 
-function trimNamePart(value) {
-    return String(value || '')
-        .replace(/^[\s\-–—:：|\/()（）]+/, '')
-        .replace(/[\s\-–—:：|\/()（）]+$/, '')
-        .trim();
-}
-
-function splitOutfitDisplayName(value) {
-    const text = getFirstAliasText(value);
-    const englishIndex = text.search(/[A-Za-z]/);
-    if (englishIndex <= 0) {
-        return { primaryName: text, englishName: '' };
-    }
-
-    const primaryName = trimNamePart(text.slice(0, englishIndex));
-    const englishName = trimNamePart(text.slice(englishIndex));
-    return primaryName && englishName
-        ? { primaryName, englishName }
-        : { primaryName: text, englishName: '' };
-}
-
 function createOutfitRow({ characterId, characterName, outfitId, outfitPreset, checked }) {
-    const displayName = splitOutfitDisplayName(getPrimaryName(outfitPreset, outfitId));
-    const outfitName = displayName.primaryName || displayName.englishName;
-    const secondaryName = getSecondaryName(outfitPreset, outfitName);
-    const englishName = displayName.englishName || getFirstAliasText(secondaryName);
-    const metaName = englishName || getFirstAliasText(outfitId);
+    const outfitName = getFirstAliasText(outfitPreset?.nameCN)
+        || getFirstAliasText(outfitPreset?.nameEN)
+        || getPrimaryName(outfitPreset, outfitId);
+    const englishName = getFirstAliasText(outfitPreset?.nameEN);
+    const shouldShowEnglishName = Boolean(englishName && englishName !== outfitName);
     const imageId = getPhotoImageId(outfitPreset);
     const row = document.createElement('div');
     const checkboxId = `chatu8-qd-outfit-${outfitInputSerial += 1}`;
@@ -670,10 +648,6 @@ function createOutfitRow({ characterId, characterName, outfitId, outfitPreset, c
     name.className = 'chatu8-qd-outfit-name';
     name.textContent = outfitName;
 
-    const meta = document.createElement('span');
-    meta.className = englishName ? 'chatu8-qd-outfit-meta chatu8-qd-outfit-meta-english' : 'chatu8-qd-outfit-meta';
-    meta.textContent = metaName;
-
     const photoMark = document.createElement('button');
     photoMark.type = 'button';
     photoMark.className = imageId ? 'chatu8-qd-photo-mark is-ready' : 'chatu8-qd-photo-mark';
@@ -682,7 +656,13 @@ function createOutfitRow({ characterId, characterName, outfitId, outfitPreset, c
     photoMark.dataset.qdPreviewTrigger = 'true';
     photoMark.innerHTML = '<i class="fa-regular fa-image" aria-hidden="true"></i>';
 
-    text.append(name, meta);
+    text.append(name);
+    if (shouldShowEnglishName) {
+        const meta = document.createElement('span');
+        meta.className = 'chatu8-qd-outfit-meta chatu8-qd-outfit-meta-english';
+        meta.textContent = englishName;
+        text.append(meta);
+    }
     row.append(checkbox, text, photoMark);
     bindOutfitRowToggle(row, checkbox);
     bindOutfitPreview(row, photoMark);
