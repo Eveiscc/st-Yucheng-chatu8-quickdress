@@ -814,6 +814,7 @@ function createOutfitRow({ characterId, characterName, outfitId, outfitPreset, c
     row.className = 'chatu8-qd-outfit-row';
     row.classList.toggle('is-enabled', checked && !deleteMode);
     row.classList.toggle('is-delete-selected', checked && deleteMode);
+    row.classList.toggle('has-english-name', shouldShowEnglishName);
     row.dataset.characterId = characterId;
     row.dataset.outfitId = outfitId;
     row.dataset.imageId = imageId;
