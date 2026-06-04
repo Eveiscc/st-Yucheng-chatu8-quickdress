@@ -345,7 +345,7 @@
     display: flex;
     flex-wrap: nowrap;
     align-items: center;
-    gap: 3px;
+    gap: 4px;
     max-width: 100%;
     padding: 4px 5px 4px var(--chatu8-qd-content-left, 13px);
     border-bottom: 1px solid var(--chatu8-qd-border-color);
@@ -369,9 +369,10 @@
 .chatu8-qd-aspect-status {
     display: grid;
     align-items: center;
-    flex: 0 0 52px;
+    justify-items: start;
+    flex: 0 0 56px;
     min-width: 0;
-    max-width: 52px;
+    max-width: 56px;
     color: var(--chatu8-qd-ui-muted-color);
     font-size: 11px;
     line-height: 1.05;
@@ -380,13 +381,18 @@
 
 .chatu8-qd-aspect-status-mode {
     min-width: 0;
-    font-size: inherit;
+    font-family: var(--mainFontFamily), Arial, "Segoe UI", sans-serif;
+    font-size: 11px !important;
+    font-weight: 400 !important;
+    line-height: 1.05 !important;
 }
 
 .chatu8-qd-aspect-status-value {
     min-width: 0;
-    font-family: Arial, "Segoe UI", sans-serif;
-    font-size: inherit;
+    font-family: var(--mainFontFamily), Arial, "Segoe UI", sans-serif;
+    font-size: 11px !important;
+    font-weight: 400 !important;
+    line-height: 1.05 !important;
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum" 1;
     white-space: nowrap;
@@ -396,7 +402,7 @@
     display: inline-flex;
     flex: 0 0 auto;
     align-items: center;
-    gap: 1px;
+    gap: 3px;
 }
 
 #chatu8-qd-panel .menu_button.chatu8-qd-aspect-preset {
@@ -404,11 +410,11 @@
     align-items: center;
     justify-content: center;
     flex: 0 0 auto;
-    min-width: 30px;
+    min-width: 34px;
     width: auto;
     min-height: 22px;
     height: 22px;
-    padding: 0 4px;
+    padding: 0 5px;
     font-family: Arial, "Segoe UI", sans-serif !important;
     font-size: 12px !important;
     line-height: 1 !important;
@@ -475,7 +481,7 @@
     border-style: solid;
     border-color: var(--chatu8-qd-ui-accent);
     background: var(--chatu8-qd-button-color);
-    box-shadow: inset 0 0 8px var(--chatu8-qd-selection-glow);
+    box-shadow: inset 0 0 11px 2px var(--chatu8-qd-selection-glow);
     color: var(--chatu8-qd-ui-color);
     font-family: Arial, "Segoe UI", sans-serif !important;
     font-size: 12px !important;
@@ -489,9 +495,10 @@
 }
 
 .chatu8-qd-desktop .chatu8-qd-panel-body {
+    display: flex;
+    flex-direction: column;
     max-width: 100%;
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: hidden;
 }
 
 .chatu8-qd-panel-body,
@@ -535,7 +542,11 @@
 }
 
 .chatu8-qd-desktop .chatu8-qd-columns {
-    max-width: none;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
 }
 
 .chatu8-qd-character-column {
@@ -1068,11 +1079,11 @@
 }
 
 .chatu8-qd-mobile .chatu8-qd-panel-header {
-    align-items: flex-start;
+    align-items: center;
 }
 
 .chatu8-qd-mobile .chatu8-qd-panel {
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, auto) auto;
 }
 
 .chatu8-qd-mobile .chatu8-qd-panel-body {
@@ -1085,18 +1096,23 @@
 
 .chatu8-qd-mobile .chatu8-qd-aspect-toolbar {
     flex: 0 0 auto;
+    gap: 4px;
     padding: 5px 5px 5px var(--chatu8-qd-content-left, 11px);
     flex-wrap: nowrap;
 }
 
 .chatu8-qd-mobile .chatu8-qd-aspect-status {
-    flex-basis: 52px;
-    max-width: 52px;
+    flex-basis: 56px;
+    max-width: 56px;
     font-size: 11px;
 }
 
+.chatu8-qd-mobile .chatu8-qd-aspect-presets {
+    gap: 2px;
+}
+
 .chatu8-qd-mobile #chatu8-qd-panel .menu_button.chatu8-qd-aspect-preset {
-    min-width: 28px;
+    min-width: 30px;
     min-height: 22px;
     height: 22px;
     padding: 0 3px;
@@ -1143,7 +1159,7 @@
     height: 15px;
 }
 
-.chatu8-qd-mobile .menu_button.chatu8-qd-aspect-icon {
+.chatu8-qd-mobile #chatu8-qd-panel .menu_button.chatu8-qd-aspect-icon {
     flex: 0 0 26px;
     width: 26px;
     min-width: 26px;
@@ -1159,7 +1175,7 @@
 .chatu8-qd-mobile .chatu8-qd-panel-title-area {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
-    align-items: start;
+    align-items: center;
     gap: 7px;
 }
 
@@ -1174,7 +1190,7 @@
     grid-auto-columns: var(--chatu8-qd-column-width);
     align-items: stretch;
     gap: var(--chatu8-qd-column-gap);
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     box-sizing: border-box;
     width: 100%;
     max-width: 100%;
@@ -1233,7 +1249,7 @@
 
 .chatu8-qd-mobile #chatu8-qd-panel .chatu8-qd-outfit-list {
     min-height: 0;
-    max-height: none;
+    max-height: var(--chatu8-qd-mobile-outfit-list-max-height, 371px);
     overflow-y: auto;
     overscroll-behavior-x: auto;
     overscroll-behavior-y: contain;

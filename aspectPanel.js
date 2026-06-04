@@ -51,14 +51,14 @@ function renderStatus(status, settings) {
     value.className = 'chatu8-qd-aspect-status-value';
 
     if (!settings.aspectAutoEnabled) {
-        mode.textContent = '手动：';
+        mode.textContent = '手动画幅';
         value.textContent = formatPresetPixels(manualPreset);
     } else if (lastResult?.mode === 'auto' && lastResult.ok && lastResult.preset) {
         const autoPreset = getAspectPreset(lastResult.preset);
-        mode.textContent = '自动：';
+        mode.textContent = '自动画幅';
         value.textContent = formatPresetPixels(autoPreset);
     } else {
-        mode.textContent = '自动：';
+        mode.textContent = '自动画幅';
         value.textContent = '待判定';
     }
 
@@ -129,10 +129,6 @@ function renderAspectToolbar(toolbar) {
     toolbar.dataset.qdAspectBackend = backend || '';
     toolbar.dataset.qdAspectSupported = String(supported);
 
-    const title = document.createElement('div');
-    title.className = 'chatu8-qd-aspect-title';
-    title.textContent = '画幅';
-
     const status = document.createElement('div');
     status.className = 'chatu8-qd-aspect-status';
     renderStatus(status, settings);
@@ -175,7 +171,7 @@ function renderAspectToolbar(toolbar) {
     actions.className = 'chatu8-qd-aspect-actions';
     actions.append(autoLabel, infoButton);
 
-    toolbar.append(title, status, presets, actions);
+    toolbar.append(status, presets, actions);
 }
 
 function handleManualPreset(toolbar, presetId) {

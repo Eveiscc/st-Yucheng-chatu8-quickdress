@@ -46,6 +46,11 @@ let pendingPanelPositionFrame = 0;
 let suppressPanelClickUntil = 0;
 const columnHorizontalScrollThreshold = 7;
 const columnHorizontalScrollClickSuppressMs = 350;
+const mobileOutfitListVisibleLimit = 6;
+const mobileOutfitRowHeight = 48;
+const mobileOutfitRowWithEnglishHeight = 58;
+const outfitListGap = 3;
+const outfitListVerticalPadding = 8;
 const columnTouchScrollStateByElement = new WeakMap();
 
 function markPanelStateDirty() {
@@ -783,11 +788,28 @@ function createCharacterColumn(chatu8, characterId) {
         }
     }
 
+    syncOutfitListVisibleHeight(list);
     column.append(list);
     requestAnimationFrame(() => {
         list.scrollTop = getOutfitScrollTop(characterId);
     });
     return column;
+}
+
+function syncOutfitListVisibleHeight(list) {
+    const rows = [...list.children]
+        .filter((child) => child.classList?.contains('chatu8-qd-outfit-row'))
+        .slice(0, mobileOutfitListVisibleLimit);
+    if (rows.length === 0) {
+        return;
+    }
+
+    const rowHeight = rows.reduce(
+        (total, row) => total + (row.classList.contains('has-english-name') ? mobileOutfitRowWithEnglishHeight : mobileOutfitRowHeight),
+        0,
+    );
+    const gapHeight = Math.max(0, rows.length - 1) * outfitListGap;
+    list.style.setProperty('--chatu8-qd-mobile-outfit-list-max-height', `${rowHeight + gapHeight + outfitListVerticalPadding}px`);
 }
 
 function buildColumnMetaText(checkedCount, totalCount) {
