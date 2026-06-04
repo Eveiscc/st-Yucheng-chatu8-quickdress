@@ -415,7 +415,7 @@
     min-height: 22px;
     height: 22px;
     padding: 0 5px;
-    font-family: Arial, "Segoe UI", sans-serif !important;
+    font-family: var(--mainFontFamily), "Microsoft YaHei UI", "PingFang SC", sans-serif !important;
     font-size: 12px !important;
     line-height: 1 !important;
     font-weight: 400 !important;
@@ -428,6 +428,7 @@
     text-align: center;
     text-shadow: none !important;
     white-space: nowrap;
+    box-shadow: none !important;
 }
 
 .chatu8-qd-aspect-auto {
@@ -481,9 +482,11 @@
     border-style: solid;
     border-color: var(--chatu8-qd-ui-accent);
     background: var(--chatu8-qd-button-color);
-    box-shadow: inset 0 0 11px 2px var(--chatu8-qd-selection-glow);
+    box-shadow:
+        inset 0 0 0 1px var(--chatu8-qd-selection-glow),
+        inset 0 0 13px var(--chatu8-qd-selection-glow) !important;
     color: var(--chatu8-qd-ui-color);
-    font-family: Arial, "Segoe UI", sans-serif !important;
+    font-family: var(--mainFontFamily), "Microsoft YaHei UI", "PingFang SC", sans-serif !important;
     font-size: 12px !important;
     line-height: 1 !important;
     font-weight: 700 !important;
@@ -547,6 +550,40 @@
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
+}
+
+.chatu8-qd-desktop #chatu8-qd-panel .chatu8-qd-outfit-row {
+    grid-template-columns: 18px minmax(0, 1fr) 24px;
+    align-items: center;
+    height: 50px;
+    min-height: 50px;
+    padding: 5px 6px;
+}
+
+.chatu8-qd-desktop #chatu8-qd-panel .chatu8-qd-outfit-row.has-english-name {
+    height: 64px;
+    min-height: 64px;
+}
+
+.chatu8-qd-desktop #chatu8-qd-panel .chatu8-qd-outfit-text {
+    gap: 1px;
+}
+
+.chatu8-qd-desktop #chatu8-qd-panel .chatu8-qd-outfit-name {
+    font-size: 13px;
+    line-height: 1.16;
+}
+
+.chatu8-qd-desktop #chatu8-qd-panel .chatu8-qd-outfit-meta-english {
+    font-size: 10px;
+    line-height: 1.15;
+}
+
+.chatu8-qd-desktop #chatu8-qd-panel .chatu8-qd-photo-mark {
+    width: 24px;
+    min-width: 24px;
+    height: 28px;
+    min-height: 28px;
 }
 
 .chatu8-qd-character-column {
@@ -1116,7 +1153,7 @@
     min-height: 22px;
     height: 22px;
     padding: 0 3px;
-    font-family: Arial, "Segoe UI", sans-serif !important;
+    font-family: var(--mainFontFamily), "Microsoft YaHei UI", "PingFang SC", sans-serif !important;
     font-size: 11px !important;
     line-height: 1 !important;
     font-weight: 400 !important;
@@ -1132,6 +1169,7 @@
 .chatu8-qd-mobile #chatu8-qd-panel .menu_button.chatu8-qd-aspect-preset.is-active,
 .chatu8-qd-mobile #chatu8-qd-panel .menu_button.chatu8-qd-aspect-preset.is-active:hover,
 .chatu8-qd-mobile #chatu8-qd-panel .menu_button.chatu8-qd-aspect-preset.is-active:focus {
+    font-family: var(--mainFontFamily), "Microsoft YaHei UI", "PingFang SC", sans-serif !important;
     font-size: 11px !important;
     line-height: 1 !important;
     font-weight: 700 !important;
@@ -1160,12 +1198,19 @@
 }
 
 .chatu8-qd-mobile #chatu8-qd-panel .menu_button.chatu8-qd-aspect-icon {
-    flex: 0 0 26px;
-    width: 26px;
-    min-width: 26px;
-    height: 24px;
-    min-height: 24px;
-    font-size: 13px;
+    flex: 0 0 15px;
+    width: 15px;
+    min-width: 15px;
+    height: 15px;
+    min-height: 15px;
+    padding: 0;
+    font-size: 11px;
+    line-height: 1;
+}
+
+.chatu8-qd-mobile #chatu8-qd-panel .menu_button.chatu8-qd-aspect-icon i {
+    display: block;
+    line-height: 1;
 }
 
 .chatu8-qd-mobile .chatu8-qd-panel-header > div:first-child {
